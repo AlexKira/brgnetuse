@@ -1,0 +1,5 @@
+#!/bin/bash
+
+WORKDIRD="/opt/brgnetuse"
+
+go run $WORKDIRD/cmd/brgsetwg/*.go $@

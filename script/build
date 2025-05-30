@@ -1,0 +1,34 @@
+#!/bin/bash
+
+WORKDIRD="/opt/brgnetuse"
+SUBDIR_BIN="/usr/local/bin"
+BRG_ADD_NAME="brgaddwg"
+BRG_SET_NAME="brgsetwg"
+BRG_GET_NAME="brggetwg"
+
+if [ -f $SUBDIR_BIN/$BRG_ADD_NAME ];
+then
+    rm -R $SUBDIR_BIN/$BRG_ADD_NAME
+fi
+
+if [ -f $SUBDIR_BIN/$BRG_SET_NAME ];
+then
+    rm -R $SUBDIR_BIN/$BRG_SET_NAME 
+fi
+
+if [ -f $SUBDIR_BIN/$BRG_GET_NAME ];
+then
+    rm -R $SUBDIR_BIN/$BRG_GET_NAME
+fi
+
+cd $WORKDIRD/cmd/$BRG_ADD_NAME
+GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_ADD_NAME *.go
+mv $BRG_ADD_NAME $SUBDIR_BIN
+
+cd $WORKDIRD/cmd/$BRG_SET_NAME
+GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_SET_NAME *.go
+mv $BRG_SET_NAME $SUBDIR_BIN
+
+cd $WORKDIRD/cmd/$BRG_GET_NAME
+GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_GET_NAME *.go
+mv $BRG_GET_NAME $SUBDIR_BIN
