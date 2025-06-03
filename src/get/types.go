@@ -94,6 +94,10 @@ type IptablesChain struct {
 	// that have entered this chain.
 	Bytes int
 
+	// References specifies the number of references to this chain.
+	// This field is populated for custom chains (e.g., DOCKER (2 references)).
+	References int
+
 	// Rules is a slice of IptablesRule structures representing
 	// the rules within this chain.
 	Rules []IptablesRule

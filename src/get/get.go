@@ -42,29 +42,41 @@ func parseIptablesOutput(output string) (IptablesOutput, error) {
 	lines := strings.Split(output, "\n")
 	var currentChain *IptablesChain
 
-	indx := 1
+	ruleIdCounter := uint64(1)
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
+		if line == "" || strings.HasPrefix(line, "pkts") {
+			continue
+		}
+
 		if strings.HasPrefix(line, "Chain ") {
 			parts := strings.Fields(line)
-			if len(parts) >= 4 {
-				chain := IptablesChain{
-					Name:    parts[1],
-					Policy:  parts[3],
-					Packets: parseInt(parts[4]),
-					Bytes:   parseInt(parts[6]),
-				}
-				result.Chains = append(result.Chains, chain)
-				currentChain = &result.Chains[len(result.Chains)-1]
+			if len(parts) < 2 {
+				continue
 			}
-		} else if strings.HasPrefix(line, "pkts") || line == "" {
-			continue // PASS
+
+			chainName := parts[1]
+			chain := IptablesChain{Name: chainName}
+
+			if len(parts) >= 7 && parts[2] == "(policy" {
+				chain.Policy = parts[3]
+				chain.Packets = parseInt(parts[4])
+				chain.Bytes = parseInt(strings.TrimSuffix(parts[6], ")"))
+			} else if len(parts) >= 4 && strings.Contains(parts[2], "references") {
+				refStr := strings.TrimPrefix(parts[2], "(")
+				refStr = strings.TrimSuffix(refStr, "references)")
+				chain.References = parseInt(refStr)
+			}
+
+			result.Chains = append(result.Chains, chain)
+			currentChain = &result.Chains[len(result.Chains)-1]
 		} else if currentChain != nil {
 			parts := strings.Fields(line)
 			if len(parts) >= 8 {
 				rule := IptablesRule{
-					Id:          uint64(indx),
+					Id:          ruleIdCounter,
 					Pkts:        parseInt(parts[0]),
 					Bytes:       parseInt(parts[1]),
 					Target:      parts[2],
@@ -75,9 +87,14 @@ func parseIptablesOutput(output string) (IptablesOutput, error) {
 					Source:      parts[7],
 					Destination: parts[8],
 				}
+				// Note: This parsing assumes Source is parts[7] and Destination is parts[8].
+				// For rules with extended matches (e.g., "ctstate RELATED,ESTABLISHED"),
+				// parts[9] and beyond would contain these extensions.
+				// For this struct, we only capture the basic Source/Destination.
+
 				currentChain.Rules = append(currentChain.Rules, rule)
+				ruleIdCounter++
 			}
-			indx++
 		}
 	}
 
@@ -354,12 +371,17 @@ func (p *FilterIptablesOutput) EndRule() IptablesOutput {
 	return copied.Rule
 }
 
-// Function checks if an iptables rule with the specified interface and subnet already exists
-// within the provided IptablesOutput. It iterates through all chains and their rules,
-// looking for a rule where the input interface matches (or is "any"), the output
-// interface matches, and the source subnet matches the provided parameters.
-// Returns true if a matching rule is found, false otherwise.
-func (p *FilterIptablesOutput) GetExistingRules(inIface, outIface, subnetCIDR string) bool {
+// Method checks if an iptables rule with the specified input interface,
+// output interface, and source subnet exists within the FilterIptablesOutput.
+// It iterates over all chains and their rules, looking for a rule where the input
+// interface matches (or is "any"), the output interface matches, and the source subnet
+// matches (or is "0.0.0.0/0") the given parameters.
+// Returns true if such a rule is found, false otherwise. Returns an error if the subnetCIDR is invalid.
+func (p *FilterIptablesOutput) GetExistingRules(inIface, outIface, subnetCIDR string) (bool, error) {
+	_, _, err := net.ParseCIDR(subnetCIDR)
+	if err != nil {
+		return false, fmt.Errorf("error: Invalid IP address format: %s", subnetCIDR)
+	}
 
 	chains := p.Rule.Chains
 
@@ -367,19 +389,20 @@ func (p *FilterIptablesOutput) GetExistingRules(inIface, outIface, subnetCIDR st
 		for _, chain := range chains {
 			if len(chain.Rules) > 0 {
 				for _, existingRule := range chain.Rules {
+
 					inMatch := existingRule.In == inIface || existingRule.In == "any"
 					outMatch := existingRule.Out == outIface
 					subnetMatch := existingRule.Source == subnetCIDR || existingRule.Source == "0.0.0.0/0"
 
 					if inMatch && outMatch && subnetMatch {
-						return true // exist
+						return true, nil
 					}
 				}
 			}
 		}
 	}
 
-	return false // no such
+	return false, nil
 }
 
 // Function retrieves the IPv4 and IPv6 forwarding status from sysctl.
@@ -403,12 +426,12 @@ func GetIPvForwarding() (map[string]int, error) {
 
 		parts := strings.SplitN(strings.TrimSpace(output.String()), "=", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid sysctl output: %s", output.String())
+			return nil, fmt.Errorf("error: Invalid sysctl output: %s", output.String())
 		}
 
 		value, err := strconv.Atoi(strings.TrimSpace(parts[1]))
 		if err != nil {
-			return nil, fmt.Errorf("invalid sysctl value: %s", parts[1])
+			return nil, fmt.Errorf("error: Invalid sysctl value: %s", parts[1])
 		}
 
 		sysctlMap[keys[i]] = value
@@ -417,47 +440,27 @@ func GetIPvForwarding() (map[string]int, error) {
 	return sysctlMap, nil
 }
 
-// GetPeerStructure represents a structure for retrieving WireGuard peer information.
-type GetPeerStructure struct {
-	// InterfaceName is the name of the WireGuard interface for which
-	// peer information should be retrieved.
-	//
-	// If InterfaceName is not specified, the function will retrieve information
-	// for all WireGuard interfaces.
-	InterfaceName string
-}
-
-// Method retrieves WireGuard device information.
-// If InterfaceName is specified, it retrieves information for that specific interface.
-// Otherwise, it retrieves information for all WireGuard devices.
+// Function retrieves WireGuard device information.
+// If interfaceName is specified, it returns information for that specific interface.
+// Otherwise, it returns information for all WireGuard devices.
 //
-// **Returns:**
-// Returns a slice of *wgtypes.Device and an error, if any.
+// Returns a slice of pointers to wgtypes.Device and an error, if any.
 //
-// **Usage examples:**
+// Usage example:
 //
-// ```go
-//
-//	init := get.GetPeerStructure{
-//	    InterfaceName: "wg0",
-//	}
-//
-//	devices, err := init.GetPeer()
-//
+//	devices, err := GetPeer()
 //	if err != nil {
 //	    // Handle error
 //	}
 //
-//	for _, d_val := range devices {
-//	    fmt.Println("Device:", d_val.Name)
-//	    for _, p_val := range d_val.Peers {
-//	        fmt.Println("  Peer:", p_val.PublicKey.String())
-//	        // Handle print
+//	for _, device := range devices {
+//	    fmt.Println("Device:", device.Name)
+//	    for _, peer := range device.Peers {
+//	        fmt.Println("  Peer:", peer.PublicKey.String())
+//	        // Additional processing
 //	    }
 //	}
-//
-// ```
-func (p *GetPeerStructure) GetPeer() ([]*wgtypes.Device, error) {
+func GetPeer(interfaceName string) ([]*wgtypes.Device, error) {
 	newClient, err := handlers.InitWgCtlClient()
 	if err != nil {
 		return nil, fmt.Errorf("error: Failed to open wgctrl, %v", err)
@@ -466,10 +469,10 @@ func (p *GetPeerStructure) GetPeer() ([]*wgtypes.Device, error) {
 
 	var devices []*wgtypes.Device
 
-	if p.InterfaceName != "" {
-		device, err := newClient.Device(p.InterfaceName)
+	if interfaceName != "" {
+		device, err := newClient.Device(interfaceName)
 		if err != nil {
-			return nil, fmt.Errorf("error: Failed to get device %q, %v", p.InterfaceName, err)
+			return nil, fmt.Errorf("error: Failed to get device %q, %v", interfaceName, err)
 		}
 		devices = append(devices, device)
 	} else {

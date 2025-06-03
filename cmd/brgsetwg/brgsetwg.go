@@ -496,9 +496,13 @@ func (param *ReceivedArgsStructure) WgSet(stdCmd bool) {
 				os.Exit(help.ExitSetupFailed)
 			}
 			filter := get.FilterIptablesOutput{Rule: getFw}
-			isGetFw := filter.GetExistingRules(
+			isGetFw, err := filter.GetExistingRules(
 				param.InterfaceNameArray[1], param.NatArray[2], param.NatArray[1],
 			)
+			if err != nil {
+				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
+				os.Exit(help.ExitSetupFailed)
+			}
 			if !isGetFw {
 				cmd = shell.FormatCmdIptablesFirewall(
 					shell.IpTablesAdd,
@@ -519,9 +523,13 @@ func (param *ReceivedArgsStructure) WgSet(stdCmd bool) {
 				os.Exit(help.ExitSetupFailed)
 			}
 			filter = get.FilterIptablesOutput{Rule: getNat}
-			isGetNat := filter.GetExistingRules(
+			isGetNat, err := filter.GetExistingRules(
 				param.InterfaceNameArray[1], param.NatArray[2], param.NatArray[1],
 			)
+			if err != nil {
+				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
+				os.Exit(help.ExitSetupFailed)
+			}
 			if !isGetNat {
 				cmd = shell.FormatCmdIptablesNat(
 					shell.IpTablesAdd,
@@ -557,9 +565,13 @@ func (param *ReceivedArgsStructure) WgSet(stdCmd bool) {
 				os.Exit(help.ExitSetupFailed)
 			}
 			filter := get.FilterIptablesOutput{Rule: getFw}
-			isGetFw := filter.GetExistingRules(
+			isGetFw, err := filter.GetExistingRules(
 				param.InterfaceNameArray[1], param.NatArray[2], param.NatArray[1],
 			)
+			if err != nil {
+				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
+				os.Exit(help.ExitSetupFailed)
+			}
 			if isGetFw {
 				cmd = shell.FormatCmdIptablesFirewall(
 					shell.IpTablesDel,
@@ -579,9 +591,13 @@ func (param *ReceivedArgsStructure) WgSet(stdCmd bool) {
 				os.Exit(help.ExitSetupFailed)
 			}
 			filter := get.FilterIptablesOutput{Rule: getNat}
-			isGetNat := filter.GetExistingRules(
+			isGetNat, err := filter.GetExistingRules(
 				param.InterfaceNameArray[1], param.NatArray[2], param.NatArray[1],
 			)
+			if err != nil {
+				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
+				os.Exit(help.ExitSetupFailed)
+			}
 			if isGetNat {
 				cmd = shell.FormatCmdIptablesNat(
 					shell.IpTablesDel,

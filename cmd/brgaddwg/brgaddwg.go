@@ -5,7 +5,6 @@ The brgaddwg utility is designed to add WireGuard network interfaces.
 
 Features:
 - Configures a WireGuard network interface.
-- Sets the listening port for a WireGuard network interface.
 - Enables and disables logging. The level can be: Debug or Error.
 - Provides two types of logging: String or JSON.
 - Creates a log file, based on the interface name.

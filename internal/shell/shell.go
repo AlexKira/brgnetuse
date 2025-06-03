@@ -51,7 +51,16 @@ func ShellCommandOutput(cmd string) (*bytes.Buffer, error) {
 
 	output, err := exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("runtime error: [%s], %v", cmd, err)
+		replacer := strings.NewReplacer("\n", "", ".", "")
+		return nil, fmt.Errorf(
+			"runtime error: %s", replacer.Replace(
+				fmt.Sprintf(
+					"%s, %v",
+					output,
+					err,
+				),
+			),
+		)
 	}
 
 	return bytes.NewBuffer(output), nil
