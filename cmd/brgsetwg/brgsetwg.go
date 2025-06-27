@@ -504,12 +504,29 @@ func (param *ReceivedArgsStructure) WgSet(stdCmd bool) {
 				os.Exit(help.ExitSetupFailed)
 			}
 			if !isGetFw {
+				devices, err := get.GetPeer(param.InterfaceNameArray[1])
+				if err != nil {
+					help.ErrorExitMessage("", fmt.Sprintf("%v", err))
+					os.Exit(help.ExitSetupFailed)
+				}
+
+				for _, d_val := range devices {
+					cmd := shell.FormatCmdIptablesFirewallPort(
+						shell.IpTablesAdd, fmt.Sprint(d_val.ListenPort),
+					)
+					err := shell.ShellCommand(cmd, stdCmd)
+					if err != nil {
+						help.ErrorExitMessage("", fmt.Sprintf("%v", err))
+						os.Exit(help.ExitSetupFailed)
+					}
+				}
+
 				cmd = shell.FormatCmdIptablesFirewall(
 					shell.IpTablesAdd,
 					param.NatArray[2],
 					param.InterfaceNameArray[1],
 				)
-				err := shell.ShellCommand(cmd, stdCmd)
+				err = shell.ShellCommand(cmd, stdCmd)
 				if err != nil {
 					help.ErrorExitMessage("", fmt.Sprintf("%v", err))
 					os.Exit(help.ExitSetupFailed)
@@ -573,12 +590,29 @@ func (param *ReceivedArgsStructure) WgSet(stdCmd bool) {
 				os.Exit(help.ExitSetupFailed)
 			}
 			if isGetFw {
+				devices, err := get.GetPeer(param.InterfaceNameArray[1])
+				if err != nil {
+					help.ErrorExitMessage("", fmt.Sprintf("%v", err))
+					os.Exit(help.ExitSetupFailed)
+				}
+
+				for _, d_val := range devices {
+					cmd := shell.FormatCmdIptablesFirewallPort(
+						shell.IpTablesDel, fmt.Sprint(d_val.ListenPort),
+					)
+					err := shell.ShellCommand(cmd, stdCmd)
+					if err != nil {
+						help.ErrorExitMessage("", fmt.Sprintf("%v", err))
+						os.Exit(help.ExitSetupFailed)
+					}
+				}
+
 				cmd = shell.FormatCmdIptablesFirewall(
 					shell.IpTablesDel,
 					param.NatArray[2],
 					param.InterfaceNameArray[1],
 				)
-				err := shell.ShellCommand(cmd, stdCmd)
+				err = shell.ShellCommand(cmd, stdCmd)
 				if err != nil {
 					help.ErrorExitMessage("", fmt.Sprintf("%v", err))
 					os.Exit(help.ExitSetupFailed)

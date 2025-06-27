@@ -127,6 +127,18 @@ func FormatCmdIpAddrDev(
 	)
 }
 
+// Function generates an iptables command to manage (add/remove) an INGRESS
+// rule for UDP traffic on the specified destination port.
+func FormatCmdIptablesFirewallPort(flag IpFlagString, dport string) string {
+
+	cmd := fmt.Sprintf(
+		"iptables -%s INPUT -p udp --dport %s -j ACCEPT",
+		flag, dport,
+	)
+
+	return cmd
+}
+
 // Function generates the `iptables` command to manage the firewall rules.
 func FormatCmdIptablesFirewall(flag IpFlagString, osIface, wgIface string) string {
 
