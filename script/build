@@ -22,13 +22,13 @@ then
 fi
 
 cd $WORKDIRD/cmd/$BRG_ADD_NAME
-GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_ADD_NAME *.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_ADD_NAME *.go
 mv $BRG_ADD_NAME $SUBDIR_BIN
 
 cd $WORKDIRD/cmd/$BRG_SET_NAME
-GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_SET_NAME *.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_SET_NAME *.go
 mv $BRG_SET_NAME $SUBDIR_BIN
 
 cd $WORKDIRD/cmd/$BRG_GET_NAME
-GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_GET_NAME *.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_GET_NAME *.go
 mv $BRG_GET_NAME $SUBDIR_BIN
