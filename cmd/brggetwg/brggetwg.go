@@ -23,11 +23,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var DefaultErrorMessage string = fmt.Sprintf(
-	"Arguments passed incorrectly. Ask for help: [%s]",
-	help.HelpFlag,
-)
-
 // Main entry point.
 func main() {
 	if len(os.Args) < 2 || os.Args[1] == help.HelpFlag {
@@ -43,12 +38,13 @@ func main() {
 				help.ErrorExitMessage(
 					"",
 					fmt.Sprintf(
-						"error: Network interface `%s` not found",
+						"error: network interface `%s` not found",
 						os.Args[2],
 					),
 				)
 				os.Exit(help.ExitSetupFailed)
 			}
+
 			if os.Args[3] == help.IpAddressFlag {
 				if err := printIP(os.Args[2]); err != nil {
 					help.ErrorExitMessage(
@@ -68,14 +64,14 @@ func main() {
 			} else {
 				help.ErrorExitMessage(
 					os.Args[1],
-					DefaultErrorMessage,
+					help.DefaultErrorMessage,
 				)
 				os.Exit(help.ExitSetupFailed)
 			}
 		} else {
 			help.ErrorExitMessage(
 				os.Args[1],
-				DefaultErrorMessage,
+				help.DefaultErrorMessage,
 			)
 			os.Exit(help.ExitSetupFailed)
 		}
@@ -140,7 +136,7 @@ func main() {
 	default:
 		help.ErrorExitMessage(
 			os.Args[1],
-			DefaultErrorMessage,
+			help.DefaultErrorMessage,
 		)
 		os.Exit(help.ExitSetupFailed)
 	}

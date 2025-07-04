@@ -71,6 +71,10 @@ def main() -> None:
         "brgsetwg -fw6 -a",
         "brgsetwg -fw6 -d",
 
+        # Firewall port: UDP
+        "brgsetwg -fr -u -a 51820",
+        "brgsetwg -fr -u -d 51820",
+
         # Del.
         "brgsetwg -i wg0 -d",
         "brgsetwg -i wg1 -d",

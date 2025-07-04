@@ -40,7 +40,7 @@ import (
 func UpdatePrivateKey(args UpdatePrivateKeyStructure) error {
 
 	if args.InterfaceName == "" {
-		return fmt.Errorf("error: Failed to get Wireguard network interface name")
+		return fmt.Errorf("error: failed to get Wireguard network interface name")
 	}
 
 	var pvKey wgtypes.Key
@@ -77,7 +77,7 @@ func UpdatePrivateKey(args UpdatePrivateKeyStructure) error {
 	err = newClient.ConfigureDevice(args.InterfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
-			"error: Failed to update network interface '%s': %v",
+			"error: failed to update network interface '%s': %v",
 			args.InterfaceName,
 			err,
 		)
@@ -115,7 +115,7 @@ func UpdatePort(interfaceName string, port string) error {
 	err = newClient.ConfigureDevice(interfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
-			"error: Failed to update network interface '%s': %v",
+			"error: failed to update network interface '%s': %v",
 			interfaceName,
 			err,
 		)
@@ -165,11 +165,11 @@ func UpdatePort(interfaceName string, port string) error {
 // ````
 func (p *SinglePeerStructure) AddPeer(replace bool) error {
 	if p.InterfaceName == "" {
-		return fmt.Errorf("error: Failed to get Wireguard network interface name")
+		return fmt.Errorf("error: failed to get Wireguard network interface name")
 	}
 
 	if p.PublicKey == "" {
-		return fmt.Errorf("error: Failed to get public key for peer")
+		return fmt.Errorf("error: failed to get public key for peer")
 	}
 
 	var endpoint *net.UDPAddr
@@ -241,7 +241,7 @@ func (p *SinglePeerStructure) AddPeer(replace bool) error {
 	err = newClient.ConfigureDevice(p.InterfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
-			"error: Failed to update network interface '%s': %v",
+			"error: failed to update network interface '%s': %v",
 			p.InterfaceName, err,
 		)
 	}
@@ -277,11 +277,11 @@ func (p *SinglePeerStructure) AddPeer(replace bool) error {
 // ````
 func (p *SinglePeerStructure) RemovePeer() error {
 	if p.InterfaceName == "" {
-		return fmt.Errorf("error: Failed to get Wireguard network interface name")
+		return fmt.Errorf("error: failed to get Wireguard network interface name")
 	}
 
 	if p.PublicKey == "" {
-		return fmt.Errorf("error: Failed to get public key for peer")
+		return fmt.Errorf("error: failed to get public key for peer")
 	}
 
 	// Parse PublicKey (mandatory).
@@ -309,7 +309,7 @@ func (p *SinglePeerStructure) RemovePeer() error {
 	err = newClient.ConfigureDevice(p.InterfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
-			"error: Failed to update network interface '%s': %v",
+			"error: failed to update network interface '%s': %v",
 			p.InterfaceName, err,
 		)
 	}
@@ -387,7 +387,7 @@ func (p *SinglePeerStructure) RemovePeer() error {
 func (p *MultiPeerStructure) AddPeer(replace bool) error {
 	// Check interface name.
 	if p.InterfaceName == "" {
-		return fmt.Errorf("error: Failed to get Wireguard network interface name")
+		return fmt.Errorf("error: failed to get Wireguard network interface name")
 	}
 
 	// Determine loop length.
@@ -465,7 +465,7 @@ func (p *MultiPeerStructure) AddPeer(replace bool) error {
 	err = newClient.ConfigureDevice(p.InterfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
-			"error: Failed to update network interface '%s': %v",
+			"error: failed to update network interface '%s': %v",
 			p.InterfaceName,
 			err,
 		)
@@ -501,12 +501,12 @@ func (p *MultiPeerStructure) AddPeer(replace bool) error {
 func (p *MultiPeerStructure) RemovePeer() error {
 	// Check interface name.
 	if p.InterfaceName == "" {
-		return fmt.Errorf("failed to get Wireguard network interface name")
+		return fmt.Errorf("error: failed to get Wireguard network interface name")
 	}
 
 	lenght := len(p.PublicKey)
 	if lenght == 0 {
-		return fmt.Errorf("failed to get public key for peer")
+		return fmt.Errorf("error: failed to get public key for peer")
 	}
 
 	// Create slice for peer configurations.
@@ -516,7 +516,7 @@ func (p *MultiPeerStructure) RemovePeer() error {
 		// Parse PublicKey (mandatory).
 		pubKey, err := wgtypes.ParseKey(p.PublicKey[i])
 		if err != nil {
-			return fmt.Errorf("failed to get keys: %v", err)
+			return fmt.Errorf("error: failed to get keys: %v", err)
 		}
 
 		peer := wgtypes.PeerConfig{
@@ -538,7 +538,7 @@ func (p *MultiPeerStructure) RemovePeer() error {
 	err = newClient.ConfigureDevice(p.InterfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to update network interface '%s': %v",
+			"error: failed to update network interface '%s': %v",
 			p.InterfaceName, err,
 		)
 	}

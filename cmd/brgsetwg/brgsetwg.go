@@ -14,28 +14,17 @@ Capabilities:
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/AlexKira/brgnetuse/internal/handlers"
 	"github.com/AlexKira/brgnetuse/internal/help"
 	"github.com/AlexKira/brgnetuse/internal/shell"
 	"github.com/AlexKira/brgnetuse/src/get"
 	"github.com/AlexKira/brgnetuse/src/set"
 )
-
-var DefaultErrorMessage string = fmt.Sprintf(
-	"Arguments passed incorrectly. Ask for help: [%s]",
-	help.HelpFlag,
-)
-
-// Structure for storing flags.
-type ReceivedArgsStructure struct {
-	InterfaceNameArray [2]string
-	IpAddressArray     [2]string
-	NatArray           [3]string
-	ForwardIpvArray    [2]string
-}
 
 // Main entry point.
 func main() {
@@ -44,647 +33,621 @@ func main() {
 		return
 	}
 
-	param := ReceivedArgsStructure{}
-	for indx := 1; indx < len(os.Args); indx++ {
-		switch os.Args[indx] {
-		case help.WgInterfaceFlag:
+	lenghtArgs := len(os.Args) - 1
+	flag := os.Args[1]
+
+	var data []string
+
+	if lenghtArgs >= 3 {
+		flag = os.Args[1] + os.Args[3]
+		data = os.Args[2:]
+	} else if lenghtArgs == 2 {
+		flag = os.Args[1] + os.Args[2]
+		data = os.Args[1:]
+	}
+
+	obj, ok := СommandMap[flag]
+	if !ok {
+		help.ErrorExitMessage(
+			os.Args[lenghtArgs],
+			help.DefaultErrorMessage,
+		)
+		os.Exit(help.ExitSetupFailed)
+	}
+
+	cmd := obj()
+
+	curArgs, err := cmd.ParseArgs(data)
+	if err != nil {
+		help.ErrorExitMessage(
+			curArgs,
+			err.Error(),
+		)
+		os.Exit(help.ExitSetupFailed)
+	}
+
+	if err := cmd.Execute(); err != nil {
+		help.ErrorExitMessage(
+			curArgs,
+			err.Error(),
+		)
+		os.Exit(help.ExitSetupFailed)
+	}
+}
+
+// Enables standard output for shell commands.
+const ShellStd bool = true
+
+// Main command management interface.
+type Command interface {
+	ParseArgs(args []string) (string, error)
+	Execute() error
+}
+
+type CommandRegistry map[string]func() Command
+
+var СommandMap = CommandRegistry{
+	// Flag: [-i].
+	help.WgInterfaceFlag + help.DelFlag:                func() Command { return &InterfaceCommand{} },
+	help.WgInterfaceFlag + help.DisableWgInterfaceFlag: func() Command { return &InterfaceCommand{} },
+	help.WgInterfaceFlag + help.EnableWgInterfaceFlag:  func() Command { return &InterfaceCommand{} },
+
+	// Flag: [-i -u].
+	help.WgInterfaceFlag + help.UpdateFlag: func() Command { return &UpdateInterfaceCommand{} },
+
+	// Flag: [-i -pr].
+	help.WgInterfaceFlag + help.PeerFlag: func() Command { return &PeerCommand{} },
+
+	// Flag: [-i -ip].
+	help.WgInterfaceFlag + help.IpAddressFlag: func() Command { return &IpIntertfaceCommand{} },
+
+	// Flag: [-fw4 -a|-d ].
+	help.ForwIpv4Flag + help.AddFlag: func() Command { return &IpForwardingCommand{} },
+	help.ForwIpv4Flag + help.DelFlag: func() Command { return &IpForwardingCommand{} },
+
+	// Flag: [-fw6 -a|-d ].
+	help.ForwIpv6Flag + help.AddFlag: func() Command { return &IpForwardingCommand{} },
+	help.ForwIpv6Flag + help.DelFlag: func() Command { return &IpForwardingCommand{} },
+
+	// Flag: [-fpu -a|-d].
+	help.FirewallFlag + help.AddFlag: func() Command { return &FirewallPortCommand{} },
+	help.FirewallFlag + help.DelFlag: func() Command { return &FirewallPortCommand{} },
+}
+
+// InterfaceCommand encapsulates the 'interface' command's data and logic.
+// It holds the interface's name and the action to perform on it.
+type InterfaceCommand struct {
+	Cmd string
+}
+
+// Method parses the command-line arguments for the interface command,
+// validating the interface name and setting the internal command string.
+func (p *InterfaceCommand) ParseArgs(args []string) (string, error) {
+
+	if strings.ContainsAny(args[0], help.RegexSymbols) {
+		errMsg := fmt.Sprintf(
+			"error: invalid character in interface name [%s], example: 'wg0, wg1'",
+			args[0],
+		)
+		return args[1], errors.New(errMsg)
+	}
+
+	switch args[1] {
+	case help.DelFlag:
+		p.Cmd = shell.FormatCmdIpLinkDelete(args[0])
+	case help.EnableWgInterfaceFlag:
+		p.Cmd = shell.FormatCmdIpLinkSet(args[0], shell.IpUp)
+	case help.DisableWgInterfaceFlag:
+		p.Cmd = shell.FormatCmdIpLinkSet(args[0], shell.IpDown)
+	}
+
+	return help.WgInterfaceFlag, nil
+}
+
+// Method runs the shell command stored in Cmd to perform the interface operation.
+func (p *InterfaceCommand) Execute() error {
+	err := shell.ShellCommand(p.Cmd, ShellStd)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateInterface holds parameters for updating a network or system interface.
+type UpdateInterfaceCommand struct {
+	Iface   string
+	Value   string
+	FlagCmd string
+}
+
+// Method to parse arguments for updating the interface.
+func (p *UpdateInterfaceCommand) ParseArgs(args []string) (string, error) {
+
+	if len(args) < 3 {
+		return help.UpdateFlag, errors.New(help.DefaultErrorMessage)
+	}
+
+	p.Iface = args[0]
+
+	for indx := 2; indx < len(args); indx++ {
+		switch args[indx] {
+		case help.PrivateKeyFlag:
 			indx++
-			if indx < len(os.Args) {
-				indx = param.InterfaceArgsHandler(indx)
-			} else {
-				help.ErrorExitMessage(
-					help.WgInterfaceFlag,
-					fmt.Sprintf("Invalid argument passed. Pass [%s], "+
-						"followed by a valid WireGuard interface name "+
-						"(e.g. [%s wg0], [%s wg1], etc.)",
-						help.WgInterfaceFlag,
-						help.WgInterfaceFlag,
-						help.WgInterfaceFlag,
-					),
-				)
-				os.Exit(help.ExitSetupFailed)
+			if indx < len(args) {
+				p.Value = args[indx]
 			}
-		case help.IpAddressFlag:
+			p.FlagCmd = help.PrivateKeyFlag
+
+		case help.PortFlag:
 			indx++
-			if indx < len(os.Args) {
-				indx = param.IpAddressArgsHandler(indx)
+			if indx < len(args) {
+				p.FlagCmd = help.PortFlag
+				p.Value = args[indx]
 			} else {
-				help.ErrorExitMessage(
-					help.IpAddressFlag,
-					fmt.Sprintf("Invalid argument passed. Pass [%s], "+
-						"followed by a valid ip address "+
-						"(e.g. [%s wg0 %s 10.0.0.1/24 %s] etc.)",
-						help.IpAddressFlag,
-						help.WgInterfaceFlag,
-						help.IpAddressFlag,
-						help.AddFlag,
-					),
-				)
-				os.Exit(help.ExitSetupFailed)
-			}
-		case help.ForwIpv4Flag, help.ForwIpv6Flag:
-			indx++
-			if indx < len(os.Args) {
-				if help.AddFlag == os.Args[indx] {
-					param.ForwardIpvArray[0] = os.Args[indx-1]
-					param.ForwardIpvArray[1] = help.AddFlag
-				} else if help.DelFlag == os.Args[indx] {
-					param.ForwardIpvArray[0] = os.Args[indx-1]
-					param.ForwardIpvArray[1] = help.DelFlag
-				} else {
-					indx--
-				}
-			} else {
-				indx--
-				help.ErrorExitMessage(
-					os.Args[indx],
-					fmt.Sprintf("Invalid argument passed. "+
-						"Example (e.g. [%s %s or %s %s] etc.)",
-						help.ForwIpv4Flag,
-						help.AddFlag,
-						help.ForwIpv6Flag,
-						help.DelFlag,
-					),
-				)
-				os.Exit(help.ExitSetupFailed)
+				return help.PortFlag, errors.New(help.DefaultErrorMessage)
 			}
 		default:
-			help.ErrorExitMessage(
-				os.Args[indx],
-				DefaultErrorMessage,
-			)
-			os.Exit(help.ExitSetupFailed)
+			return help.UpdateFlag, errors.New(help.DefaultErrorMessage)
 		}
-
 	}
-	param.WgSet(true)
 
+	return help.UpdateFlag, nil
 }
 
-// Method for processing flags to remove, enable, or disable a network interface.
-func (param *ReceivedArgsStructure) InterfaceArgsHandler(indx int) int {
-	if param.InterfaceNameArray[0] != "" {
-		help.ErrorExitMessage(
-			help.WgInterfaceFlag,
-			DefaultErrorMessage,
-		)
-		os.Exit(help.ExitSetupFailed)
+// Method to execute a command for updating the interface.
+func (p *UpdateInterfaceCommand) Execute() error {
+
+	switch p.FlagCmd {
+	case help.PortFlag:
+		err := set.UpdatePort(p.Iface, p.Value)
+		if err != nil {
+			return err
+		}
+	case help.PrivateKeyFlag:
+
+		errMsg := "error: invalid public key length (base64)"
+		if len(p.Value) > 0 && len(p.Value) < 44 {
+			return errors.New(errMsg)
+		}
+
+		privKey := set.UpdatePrivateKeyStructure{
+			InterfaceName: p.Iface,
+			PrivateKey:    p.Value,
+		}
+
+		err := set.UpdatePrivateKey(privKey)
+		if err != nil {
+			return err
+		}
 	}
 
-	indx++
-	if indx < len(os.Args) {
+	return nil
+}
 
-		if strings.ContainsAny(os.Args[indx-1], help.RegexSymbols) {
-			msg := fmt.Sprintf(
-				"Invalid character in interface name [%s]. Example: wg0, wg1",
-				os.Args[indx-1],
-			)
-			help.ErrorExitMessage(help.WgInterfaceFlag, msg)
-			os.Exit(help.ExitSetupFailed)
-		}
-		currentInterface := os.Args[indx-1]
+// PeerCommand encapsulates the data and logic for managing WireGuard peers.
+// It holds all necessary parameters for adding or deleting a peer, such as
+// interface name, public key, allowed IPs, keep-alive settings, and endpoint.
+type PeerCommand struct {
+	Iface        string
+	Publickey    string
+	AllowIps     []string
+	KeepAlive    string
+	EndPointHost string
+	FlagCmd      string
+}
 
-		if help.DelFlag == os.Args[indx] {
-			param.InterfaceNameArray[0] = help.DelFlag
-			param.InterfaceNameArray[1] = currentInterface
-		} else if help.EnableWgInterfaceFlag == os.Args[indx] {
-			param.InterfaceNameArray[0] = help.EnableWgInterfaceFlag
-			param.InterfaceNameArray[1] = currentInterface
-		} else if help.DisableWgInterfaceFlag == os.Args[indx] {
-			param.InterfaceNameArray[0] = help.DisableWgInterfaceFlag
-			param.InterfaceNameArray[1] = currentInterface
-		} else if help.UpdateFlag == os.Args[indx] {
+// Method parses the command-line arguments for the peer management command.
+// It extracts the interface name, public key, allowed IPs, and optional
+// keep-alive and endpoint host settings based on the provided arguments.
+// It returns the main command flag (help.PeerFlag) and an error if parsing fails.
+func (p *PeerCommand) ParseArgs(args []string) (string, error) {
+
+	if len(args) <= 3 {
+		errMsg := "error: invalid command arguments, please provide private " +
+			"key and subnet address"
+		return help.PeerFlag, errors.New(errMsg)
+	}
+
+	currentAlwips := 0
+	endAlwIps := len(args)
+
+	p.Iface = args[0]
+	p.Publickey = args[2]
+	for indx := 3; indx < len(args); indx++ {
+		switch args[indx] {
+		case help.AddFlag:
+			p.FlagCmd = help.AddFlag
+
 			indx++
-			if indx < len(os.Args) {
-				if help.PortFlag == os.Args[indx] {
-					indx++
-					if indx < len(os.Args) {
-						param.InterfaceNameArray[0] = help.UpdateFlag + help.PortFlag
-						param.InterfaceNameArray[1] = fmt.Sprintf(
-							"%s, %s", currentInterface, os.Args[indx])
-					} else {
-						indx -= 3
-					}
-
-				} else if help.PrivateKeyFlag == os.Args[indx] {
-					indx++
-					if indx < len(os.Args) {
-						if len(os.Args[indx]) < 44 {
-							help.ErrorExitMessage(
-								help.PeerFlag,
-								"Invalid public key length (base64)",
-							)
-							os.Exit(help.ExitSetupFailed)
-						}
-
-						param.InterfaceNameArray[1] = fmt.Sprintf(
-							"%s, %s", currentInterface, os.Args[indx])
-					} else {
-						param.InterfaceNameArray[1] = currentInterface
-					}
-					param.InterfaceNameArray[0] = help.UpdateFlag + help.PrivateKeyFlag
-				} else {
-					indx--
-				}
+			if indx < len(args) {
+				currentAlwips = len(args[(endAlwIps - indx):endAlwIps])
 			} else {
-				indx -= 2
+				return help.AddFlag, errors.New(help.DefaultErrorMessage)
 			}
 
-		} else if help.PeerFlag == os.Args[indx] {
+		case help.KeepaliveFlag:
+			endAlwIps = indx
+
 			indx++
-			if indx < len(os.Args) {
-				if len(os.Args[indx]) < 44 {
-					help.ErrorExitMessage(
-						help.PeerFlag,
-						"Invalid public key length (base64)",
-					)
-					os.Exit(help.ExitSetupFailed)
-				}
-
-				param.InterfaceNameArray[1] = fmt.Sprintf(
-					"%s, %s, %s, ",
-					help.WgInterfaceFlag,
-					currentInterface,
-					os.Args[indx],
-				)
-
-				indx++
-				if indx < len(os.Args) && os.Args[indx] == help.DelFlag {
-					param.InterfaceNameArray[0] = help.PeerFlag + help.DelFlag
-				} else {
-					param.InterfaceNameArray[0] = help.PeerFlag + help.AddFlag
-					param.InterfaceNameArray[1] += strings.Join(os.Args[indx:], ", ")
-					indx += len(os.Args)
-				}
-
+			if indx < len(args) {
+				p.KeepAlive = args[indx]
 			} else {
-				indx -= 2
+				return help.KeepaliveFlag, errors.New(help.DefaultErrorMessage)
 			}
 
-		} else {
-			indx--
-			param.InterfaceNameArray[0] = help.WgInterfaceFlag
-			param.InterfaceNameArray[1] = currentInterface
-		}
+			indx++
+			if indx < len(args) {
+				if args[indx] == help.EndPointHostFlag {
 
-	} else {
-		help.ErrorExitMessage(
-			help.WgInterfaceFlag,
-			DefaultErrorMessage,
-		)
-		os.Exit(help.ExitSetupFailed)
-	}
-
-	return indx
-}
-
-// Method for processing flags to add or remove an IP address.
-func (param *ReceivedArgsStructure) IpAddressArgsHandler(indx int) int {
-
-	if param.IpAddressArray[0] != "" {
-		help.ErrorExitMessage(
-			help.IpAddressFlag,
-			DefaultErrorMessage,
-		)
-		os.Exit(help.ExitSetupFailed)
-	}
-
-	indx++
-	if indx < len(os.Args) {
-
-		ip, ipnet := help.IpAddressValid(
-			fmt.Sprintf(
-				"%s %s %s %s %s",
-				help.WgInterfaceFlag,
-				param.InterfaceNameArray[1],
-				help.IpAddressFlag,
-				os.Args[indx-1],
-				os.Args[indx],
-			),
-			os.Args[indx-1],
-		)
-
-		mask, _ := ipnet.Mask.Size()
-
-		// Check IP.
-		if help.AddFlag == os.Args[indx] {
-			param.IpAddressArray[0] = help.AddFlag
-			param.IpAddressArray[1] = fmt.Sprintf("%s/%v", ip.String(), mask)
-		} else if help.DelFlag == os.Args[indx] {
-			param.IpAddressArray[0] = help.DelFlag
-			param.IpAddressArray[1] = fmt.Sprintf("%s/%v", ip.String(), mask)
-		} else {
-			help.ErrorExitMessage(
-				os.Args[indx],
-				DefaultErrorMessage,
-			)
-			os.Exit(help.ExitSetupFailed)
-		}
-
-		// Check NAT.
-		indx++
-		if indx < len(os.Args) {
-			if help.NatFlag == os.Args[indx] || help.FirewallFlag == os.Args[indx] {
-
-				currentFlag := os.Args[indx]
-
-				indx++
-				if indx < len(os.Args) {
-
-					param.NatArray[0] = currentFlag
-					param.NatArray[1] = ipnet.String()
-
-					iface, _ := get.GetExistInterface(
-						os.Args[indx],
-					)
-					if !iface {
-						help.ErrorExitMessage(
-							help.NatFlag,
-							fmt.Sprintf("Network interface [%s] "+
-								"not found or entered incorrectly",
-								os.Args[indx]),
-						)
-						os.Exit(help.ExitSetupFailed)
+					indx++
+					if indx < len(args) {
+						p.EndPointHost = args[indx]
+					} else {
+						return help.EndPointHostFlag, errors.New(help.DefaultErrorMessage)
 					}
-
-					param.NatArray[2] = os.Args[indx]
-
 				} else {
-					param.NatArray[0] = currentFlag
-					param.NatArray[1] = ipnet.String()
-					param.NatArray[2] = shell.GetNetInterfaceNameLinux()
+					return args[indx], errors.New(help.DefaultErrorMessage)
 				}
-			} else {
-				help.ErrorExitMessage(
-					os.Args[indx],
-					DefaultErrorMessage,
-				)
-				os.Exit(help.ExitSetupFailed)
-			}
-		}
 
-	} else {
-		help.ErrorExitMessage(
-			help.IpAddressFlag,
-			DefaultErrorMessage,
-		)
-		os.Exit(help.ExitSetupFailed)
+			}
+
+		case help.DelFlag:
+			p.FlagCmd = help.DelFlag
+		}
 	}
 
-	return indx
+	p.AllowIps = args[currentAlwips:endAlwIps]
+
+	return help.PeerFlag, nil
 }
 
-// Method for running commands in Linux shell.
-func (param *ReceivedArgsStructure) WgSet(stdCmd bool) {
+// Method performs the peer management operation (add or delete) based on the parsed arguments.
+// It constructs a SinglePeerStructure and calls the appropriate method (AddPeer or RemovePeer)
+// to apply the changes to the WireGuard configuration.
+func (p *PeerCommand) Execute() error {
 
-	var cmd string
-
-	// Flag: [-i].
-	switch param.InterfaceNameArray[0] {
-	// Delete network interface.
-	case help.DelFlag:
-		cmd = shell.FormatCmdIpLinkDelete(param.InterfaceNameArray[1])
-		err := shell.ShellCommand(cmd, stdCmd)
-		if err != nil {
-			help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-			os.Exit(help.ExitSetupFailed)
-		}
-	// Network interface up.
-	case help.EnableWgInterfaceFlag:
-		cmd = shell.FormatCmdIpLinkSet(
-			param.InterfaceNameArray[1],
-			shell.IpUp,
-		)
-		err := shell.ShellCommand(cmd, stdCmd)
-		if err != nil {
-			help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-			os.Exit(help.ExitSetupFailed)
-		}
-	// Network interface down.
-	case help.DisableWgInterfaceFlag:
-		cmd = shell.FormatCmdIpLinkSet(
-			param.InterfaceNameArray[1],
-			shell.IpDown,
-		)
-		err := shell.ShellCommand(cmd, stdCmd)
-		if err != nil {
-			help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-			os.Exit(help.ExitSetupFailed)
-		}
-	// Updating PrivateKey in Wireguard network.
-	case help.UpdateFlag + help.PrivateKeyFlag:
-
-		args := strings.Split(param.InterfaceNameArray[1], ", ")
-		param := set.UpdatePrivateKeyStructure{}
-
-		if len(args) == 2 {
-			param.InterfaceName = args[0]
-			param.PrivateKey = args[1]
-		} else {
-			param.InterfaceName = args[0]
-		}
-
-		err := set.UpdatePrivateKey(param)
-		if err != nil {
-			help.ErrorExitMessage(
-				help.PrivateKeyFlag,
-				fmt.Sprintf("%v", err),
-			)
-			os.Exit(help.ExitSetupFailed)
-		}
-	// Updating the port in the added Wireguard network.
-	case help.UpdateFlag + help.PortFlag:
-		args := strings.Split(param.InterfaceNameArray[1], ", ")
-		err := set.UpdatePort(args[0], args[1])
-		if err != nil {
-			help.ErrorExitMessage(
-				help.PortFlag,
-				fmt.Sprintf("%v", err),
-			)
-			os.Exit(help.ExitSetupFailed)
-		}
-	// Delete peer from Wireguard network.
-	case help.PeerFlag + help.DelFlag:
-		flags := strings.Split(param.InterfaceNameArray[1], ", ")
-		cfg := set.SinglePeerStructure{
-			InterfaceName: flags[1],
-			PublicKey:     flags[2],
-		}
-		err := cfg.RemovePeer()
-		if err != nil {
-			help.ErrorExitMessage(
-				help.DelFlag,
-				fmt.Sprintf("%v", err),
-			)
-			os.Exit(help.ExitSetupFailed)
-		}
-	// Adding peer to a Wireguard network.
-	case help.PeerFlag + help.AddFlag:
-		flags := strings.Split(param.InterfaceNameArray[1], ", ")
-		var cfg set.SinglePeerStructure
-
-		cfg.InterfaceName = flags[1]
-		cfg.PublicKey = flags[2]
-
-		lenght := len(flags[3:])
-		args := flags[3:]
-
-		for indx := 0; indx < lenght; indx++ {
-			if args[indx] == help.AddFlag {
-				indx++
-				if indx < lenght {
-					cfg.AllowedIPs = []string{args[indx]}
-				} else {
-					help.ErrorExitMessage(
-						args[indx-1],
-						DefaultErrorMessage,
-					)
-					os.Exit(help.ExitSetupFailed)
-				}
-
-			} else if args[indx] == help.KeepaliveFlag {
-				indx++
-				if indx < lenght {
-					cfg.PersistentKeepaliveInterval = args[indx]
-				} else {
-					help.ErrorExitMessage(
-						args[indx-1],
-						DefaultErrorMessage,
-					)
-					os.Exit(help.ExitSetupFailed)
-				}
-			} else if args[indx] == help.EndPointHostFlag {
-				indx++
-				if indx < lenght {
-					cfg.EndpointHost = args[indx]
-				} else {
-					help.ErrorExitMessage(
-						args[indx-1],
-						DefaultErrorMessage,
-					)
-					os.Exit(help.ExitSetupFailed)
-				}
-			} else {
-				help.ErrorExitMessage(
-					args[indx],
-					DefaultErrorMessage,
-				)
-				os.Exit(help.ExitSetupFailed)
-			}
-
-		}
-		err := cfg.AddPeer(false)
-		if err != nil {
-			help.ErrorExitMessage(
-				help.PeerFlag,
-				fmt.Sprintf("%v", err),
-			)
-			os.Exit(help.ExitSetupFailed)
-		}
-	}
-
-	// Flag: [-ip].
-	switch param.IpAddressArray[0] {
+	var obj set.SinglePeerStructure
+	switch p.FlagCmd {
 	case help.AddFlag:
-		// Add rules.
-		if param.NatArray[0] == help.NatFlag {
 
-			// Firewall.
-			getFw, err := get.GetIptablesFirewall()
-			if err != nil {
-				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-				os.Exit(help.ExitSetupFailed)
-			}
-			filter := get.FilterIptablesOutput{Rule: getFw}
-			isGetFw, err := filter.GetExistingRules(
-				param.InterfaceNameArray[1], param.NatArray[2], param.NatArray[1],
-			)
-			if err != nil {
-				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-				os.Exit(help.ExitSetupFailed)
-			}
-			if !isGetFw {
-				devices, err := get.GetPeer(param.InterfaceNameArray[1])
-				if err != nil {
-					help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-					os.Exit(help.ExitSetupFailed)
-				}
+		obj.InterfaceName = p.Iface
+		obj.PublicKey = p.Publickey
+		obj.AllowedIPs = p.AllowIps
+		obj.PersistentKeepaliveInterval = p.KeepAlive
+		obj.EndpointHost = p.EndPointHost
 
-				for _, d_val := range devices {
-					cmd := shell.FormatCmdIptablesFirewallPort(
-						shell.IpTablesAdd, fmt.Sprint(d_val.ListenPort),
-					)
-					err := shell.ShellCommand(cmd, stdCmd)
-					if err != nil {
-						help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-						os.Exit(help.ExitSetupFailed)
-					}
-				}
-
-				cmd = shell.FormatCmdIptablesFirewall(
-					shell.IpTablesAdd,
-					param.NatArray[2],
-					param.InterfaceNameArray[1],
-				)
-				err = shell.ShellCommand(cmd, stdCmd)
-				if err != nil {
-					help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-					os.Exit(help.ExitSetupFailed)
-				}
-			}
-
-			// NAT.
-			getNat, err := get.GetIptablesNAT()
-			if err != nil {
-				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-				os.Exit(help.ExitSetupFailed)
-			}
-			filter = get.FilterIptablesOutput{Rule: getNat}
-			isGetNat, err := filter.GetExistingRules(
-				param.InterfaceNameArray[1], param.NatArray[2], param.NatArray[1],
-			)
-			if err != nil {
-				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-				os.Exit(help.ExitSetupFailed)
-			}
-			if !isGetNat {
-				cmd = shell.FormatCmdIptablesNat(
-					shell.IpTablesAdd,
-					param.NatArray[2],
-					param.NatArray[1],
-				)
-				err := shell.ShellCommand(cmd, stdCmd)
-				if err != nil {
-					help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-					os.Exit(help.ExitSetupFailed)
-				}
-			}
-		} else {
-			// Add IP address.
-			cmd = shell.FormatCmdIpAddrDev(
-				param.InterfaceNameArray[1],
-				param.IpAddressArray[1],
-				shell.IpAdd,
-			)
-
-			err := shell.ShellCommand(cmd, stdCmd)
-			if err != nil {
-				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-				os.Exit(help.ExitSetupFailed)
-			}
+		err := obj.AddPeer(false)
+		if err != nil {
+			return err
 		}
 	case help.DelFlag:
-		// Delete rules.
-		if param.NatArray[0] == help.FirewallFlag {
-			getFw, err := get.GetIptablesFirewall()
-			if err != nil {
-				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-				os.Exit(help.ExitSetupFailed)
-			}
-			filter := get.FilterIptablesOutput{Rule: getFw}
-			isGetFw, err := filter.GetExistingRules(
-				param.InterfaceNameArray[1], param.NatArray[2], param.NatArray[1],
-			)
-			if err != nil {
-				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-				os.Exit(help.ExitSetupFailed)
-			}
-			if isGetFw {
-				devices, err := get.GetPeer(param.InterfaceNameArray[1])
-				if err != nil {
-					help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-					os.Exit(help.ExitSetupFailed)
-				}
 
-				for _, d_val := range devices {
-					cmd := shell.FormatCmdIptablesFirewallPort(
-						shell.IpTablesDel, fmt.Sprint(d_val.ListenPort),
-					)
-					err := shell.ShellCommand(cmd, stdCmd)
-					if err != nil {
-						help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-						os.Exit(help.ExitSetupFailed)
+		obj.InterfaceName = p.Iface
+		obj.PublicKey = p.Publickey
+
+		if err := obj.RemovePeer(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// IpIntertfaceCommand encapsulates the data and logic for managing IP addresses
+// and associated firewall/NAT rules on network interfaces.
+type IpIntertfaceCommand struct {
+	InIface  string
+	SubNet   string
+	OutIface string
+	FlagCmd  string
+}
+
+// Method parses the command-line arguments for the IP interface command.
+// It extracts the input interface, subnet, action flag, and optional
+// output interface for NAT/firewall operations.
+// It returns the main command flag (help.IpAddressFlag) and an error if parsing fails.
+func (p *IpIntertfaceCommand) ParseArgs(args []string) (string, error) {
+	if len(args) < 4 {
+		errMsg := fmt.Sprintf(
+			"error: invalid command arguments, specify action: [%s | %s]",
+			help.AddFlag,
+			help.DelFlag,
+		)
+		return help.IpAddressFlag, errors.New(errMsg)
+	}
+
+	p.InIface = args[0]
+	for indx := 3; indx < len(args); indx++ {
+
+		switch args[indx] {
+		case help.AddFlag, help.DelFlag:
+			p.SubNet = args[indx-1]
+			p.FlagCmd = args[indx]
+
+			// Check args: Firewall, NAT
+			indx++
+			if indx < len(args) {
+
+				switch args[indx] {
+				case help.NatFlag, help.FirewallFlag:
+					p.FlagCmd = p.FlagCmd + args[indx]
+
+					indx++
+					if indx < len(args) {
+						p.OutIface = args[indx]
 					}
-				}
 
-				cmd = shell.FormatCmdIptablesFirewall(
-					shell.IpTablesDel,
-					param.NatArray[2],
-					param.InterfaceNameArray[1],
-				)
-				err = shell.ShellCommand(cmd, stdCmd)
-				if err != nil {
-					help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-					os.Exit(help.ExitSetupFailed)
+				default:
+					errMsg := fmt.Sprintf(
+						"error: invalid command arguments, specify action: [%s | %s]",
+						help.NatFlag,
+						help.FirewallFlag,
+					)
+					return help.IpAddressFlag, errors.New(errMsg)
 				}
 			}
-		} else if param.NatArray[0] == help.NatFlag {
-			getNat, err := get.GetIptablesNAT()
-			if err != nil {
-				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-				os.Exit(help.ExitSetupFailed)
+
+		default:
+			return help.IpAddressFlag, errors.New(help.DefaultErrorMessage)
+		}
+	}
+	return help.IpAddressFlag, nil
+}
+
+// Method execute performs the IP address and/or firewall/NAT operations based on the parsed arguments.
+// It constructs and executes shell commands using 'ip' or 'iptables'.
+func (p *IpIntertfaceCommand) Execute() error {
+
+	_, ipnet := help.IpAddressValid(
+		fmt.Sprintf(
+			"%s %s %s %s %s",
+			help.WgInterfaceFlag,
+			p.InIface,
+			help.IpAddressFlag,
+			p.SubNet,
+			strings.TrimSpace(
+				strings.Join(
+					strings.Split(
+						p.FlagCmd, "-"), " -",
+				),
+			),
+		),
+		p.SubNet,
+	)
+
+	ipAction := shell.IpAdd
+	if p.FlagCmd == help.DelFlag {
+		ipAction = shell.IpDel
+	}
+
+	if p.OutIface == "" {
+		p.OutIface = shell.GetNetInterfaceNameLinux()
+	}
+
+	switch p.FlagCmd {
+	case help.AddFlag, help.DelFlag:
+
+		cmd := shell.FormatCmdIpAddrDev(
+			p.InIface,
+			p.SubNet,
+			ipAction,
+		)
+
+		err := shell.ShellCommand(cmd, ShellStd)
+		if err != nil {
+			return err
+		}
+
+	case help.AddFlag + help.NatFlag, help.AddFlag + help.FirewallFlag:
+
+		isExistFirewall, isExistNat, err := getRules(
+			p.InIface, p.OutIface, ipnet.String(), "all",
+		)
+		if err != nil {
+			return err
+		}
+
+		if !isExistFirewall {
+			cmd := shell.FormatCmdIptablesFirewall(shell.IpTablesAdd, p.OutIface, p.InIface)
+			if err = shell.ShellCommand(cmd, ShellStd); err != nil {
+				return err
 			}
-			filter := get.FilterIptablesOutput{Rule: getNat}
-			isGetNat, err := filter.GetExistingRules(
-				param.InterfaceNameArray[1], param.NatArray[2], param.NatArray[1],
-			)
-			if err != nil {
-				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-				os.Exit(help.ExitSetupFailed)
+		}
+
+		if !isExistNat {
+			cmd := shell.FormatCmdIptablesNat(shell.IpTablesAdd, p.OutIface, ipnet.String())
+			if err := shell.ShellCommand(cmd, ShellStd); err != nil {
+				return err
 			}
-			if isGetNat {
-				cmd = shell.FormatCmdIptablesNat(
-					shell.IpTablesDel,
-					param.NatArray[2],
-					param.NatArray[1],
-				)
-				err := shell.ShellCommand(cmd, stdCmd)
-				if err != nil {
-					help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-					os.Exit(help.ExitSetupFailed)
-				}
+		}
+
+	case help.DelFlag + help.NatFlag:
+
+		_, isExistNat, err := getRules(p.InIface, p.OutIface, ipnet.String(), "nat")
+		if err != nil {
+			return err
+		}
+		if isExistNat {
+			cmd := shell.FormatCmdIptablesNat(shell.IpTablesDel, p.OutIface, ipnet.String())
+			if err := shell.ShellCommand(cmd, ShellStd); err != nil {
+				return err
 			}
-		} else {
-			// Delete IP address.
-			cmd = shell.FormatCmdIpAddrDev(
-				param.InterfaceNameArray[1],
-				param.IpAddressArray[1],
-				shell.IpDel,
-			)
-			err := shell.ShellCommand(cmd, stdCmd)
-			if err != nil {
-				help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-				os.Exit(help.ExitSetupFailed)
+		}
+
+	case help.DelFlag + help.FirewallFlag:
+		isExistFirewall, _, err := getRules(p.InIface, p.OutIface, ipnet.String(), "fr")
+		if err != nil {
+			return err
+		}
+
+		if isExistFirewall {
+			cmd := shell.FormatCmdIptablesFirewall(shell.IpTablesDel, p.OutIface, p.InIface)
+			if err = shell.ShellCommand(cmd, ShellStd); err != nil {
+				return err
 			}
 		}
 
 	}
 
-	// Flag: [-fw4] or [-fw6].
-	switch param.ForwardIpvArray[0] {
-	case help.ForwIpv4Flag, help.ForwIpv6Flag:
-		cmdMap := map[string]string{
-			// IPv4
-			"fw4a": shell.SysctlIpv4Up,
-			"fw4d": shell.SysctlIpv4Down,
-			// IPv6
-			"fw6a": shell.SysctlIpv6Up,
-			"fw6d": shell.SysctlIpv6Down,
-		}
-		flag := strings.Join(param.ForwardIpvArray[:2], "")
+	return nil
+}
 
-		cmd = cmdMap[strings.Replace(flag, "-", "", 2)]
-		err := shell.ShellCommand(cmd, stdCmd)
+// Function checks for the existence of specified iptables firewall and/or NAT rules.
+// It queries the system for existing rules and filters them based on interface names and IP network.
+//
+// Parameters:
+//
+//	inIface: The input network interface name.
+//	outIface: The output network interface name.
+//	ipNet: The IP network string (e.g., "10.0.0.0/24").
+//	rule: Specifies which type of rule to check: "fr" for firewall, "nat" for NAT, or "all" for both.
+//
+// Returns:
+//
+//	isGetFw: True if a matching firewall rule is found.
+//	isGetNat: True if a matching NAT rule is found.
+//	error: An error if an invalid interface is detected or rule retrieval fails.
+func getRules(inIface, outIface, ipNet, rule string) (bool, bool, error) {
+
+	var isGetFw, isGetNat bool
+
+	isExistIface, err := get.GetExistInterface(outIface)
+	if err != nil {
+		return false, false, err
+	}
+
+	if !isExistIface {
+		errMsg := fmt.Sprintf(
+			"error: network interface: '%s' not found or entered incorrectly",
+			outIface,
+		)
+		return false, false, errors.New(errMsg)
+	}
+
+	if rule == "fr" || rule == "all" {
+		getFw, err := get.GetIptablesFirewall()
 		if err != nil {
-			help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-			os.Exit(help.ExitSetupFailed)
+			return false, false, err
 		}
 
-		cmd = shell.SysctlRules
-		err = shell.ShellCommand(cmd, stdCmd)
+		filter := get.FilterIptablesOutput{Rule: getFw}
+		isGetFw, err = filter.GetExistingRules(inIface, outIface, ipNet)
 		if err != nil {
-			help.ErrorExitMessage("", fmt.Sprintf("%v", err))
-			os.Exit(help.ExitSetupFailed)
+			return false, false, err
+		}
+
+	}
+
+	if rule == "nat" || rule == "all" {
+		getNat, err := get.GetIptablesNAT()
+		if err != nil {
+			return false, false, err
+		}
+
+		filter := get.FilterIptablesOutput{Rule: getNat}
+		isGetNat, err = filter.GetExistingRules(inIface, outIface, ipNet)
+		if err != nil {
+			return false, false, err
 		}
 	}
+
+	return isGetFw, isGetNat, nil
+}
+
+// IpForwardingCommand encapsulates the data and logic for managing
+// IP packet forwarding (IPv4 and IPv6) at the system kernel level.
+type IpForwardingCommand struct {
+	Cmd string
+}
+
+// Method parses the command-line arguments for the IP forwarding command.
+// It determines which sysctl command to execute for enabling or disabling
+// IPv4 or IPv6 forwarding based on the provided arguments.
+//
+// It returns a string flag indicating the type of IP forwarding operation (IPv4/IPv6),
+// and an error if parsing fails.
+func (p *IpForwardingCommand) ParseArgs(args []string) (string, error) {
+
+	flag := fmt.Sprintf("%s | %s", help.ForwIpv4Flag, help.ForwIpv6Flag)
+	if len(args) == 0 {
+		return flag, errors.New(help.DefaultErrorMessage)
+	}
+
+	cmdMap := map[string]string{
+		// IPv4
+		help.ForwIpv4Flag + help.AddFlag: shell.SysctlIpv4Up,
+		help.ForwIpv4Flag + help.DelFlag: shell.SysctlIpv4Down,
+
+		// IPv6
+		help.ForwIpv6Flag + help.AddFlag: shell.SysctlIpv6Up,
+		help.ForwIpv6Flag + help.DelFlag: shell.SysctlIpv6Down,
+	}
+
+	cmd, ok := cmdMap[strings.Join(args, "")]
+	if !ok {
+		return flag, errors.New("internal error: unrecognized forwarding key argument")
+	}
+
+	p.Cmd = cmd
+
+	return flag, nil
+}
+
+// Method execute runs the configured sysctl command to manage IP forwarding
+// and then applies the sysctl rules.
+func (p *IpForwardingCommand) Execute() error {
+
+	if err := shell.ShellCommand(p.Cmd, ShellStd); err != nil {
+		return err
+	}
+
+	if err := shell.ShellCommand(shell.SysctlRules, ShellStd); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type FirewallPortCommand struct {
+	Cmd string
+}
+
+func (p *FirewallPortCommand) ParseArgs(args []string) (string, error) {
+
+	if len(args) < 3 || len(args) > 3 {
+		errMsg := "error: invalid command arguments, please specify a port number"
+		return help.FirewallFlag, errors.New(errMsg)
+	}
+
+	cmdMap := map[string]shell.IpFlagString{
+		// Type: UDP
+		help.UpdateFlag + help.AddFlag: shell.IpTablesAdd,
+		help.UpdateFlag + help.DelFlag: shell.IpTablesDel,
+	}
+
+	port := args[2]
+	cmd, ok := cmdMap[args[0]+args[1]]
+	if !ok {
+		return fmt.Sprintf(
+			"%s %s %s",
+			help.FirewallFlag,
+			args[0],
+			args[1],
+		), errors.New("internal error: unrecognized firewall key argument")
+	}
+
+	_, err := handlers.CheckPort(port)
+	if err != nil {
+		return help.FirewallFlag, err
+	}
+
+	p.Cmd = shell.FormatCmdIptablesFirewallPort(cmd, port)
+
+	return help.FirewallFlag, nil
+}
+
+func (p *FirewallPortCommand) Execute() error {
+	if err := shell.ShellCommand(p.Cmd, ShellStd); err != nil {
+		return err
+	}
+	return nil
 }

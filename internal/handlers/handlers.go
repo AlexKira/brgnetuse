@@ -14,11 +14,9 @@ import (
 func InitWgCtlClient() (*wgctrl.Client, error) {
 	client, err := wgctrl.New()
 	if err != nil {
-		return nil, fmt.Errorf(
-			"failed: Invalid configuration: %v",
-			err,
-		)
+		return nil, fmt.Errorf("error: invalid configuration: %v", err)
 	}
+
 	return client, nil
 }
 
@@ -29,7 +27,7 @@ func CheckPort(port string) (int, error) {
 	portInt, err := strconv.Atoi(port)
 	if err != nil {
 		return 0, fmt.Errorf(
-			"failed: Invalid port value. Port must be a valid number: %w",
+			"error: invalid port value, port must be a valid number, %w",
 			err,
 		)
 	}
@@ -43,9 +41,8 @@ func CheckEndPoint(host string) (*net.UDPAddr, error) {
 
 	if len(data) != 2 {
 		return nil, fmt.Errorf(
-			"failed: Invalid endpoint format '%s'. "+
-				"Expected format: `IP-address:port` "+
-				"(e.g., `89.89.89.1:51820`)",
+			"error: invalid endpoint format '%s', expected format: "+
+				"`IP-address:port` (e.g., `89.89.89.1:51820`",
 			host,
 		)
 	}
@@ -58,8 +55,8 @@ func CheckEndPoint(host string) (*net.UDPAddr, error) {
 	ip := net.ParseIP(data[0])
 	if ip == nil {
 		return nil, fmt.Errorf(
-			"failed: Invalid IPv4 address: '%s'. "+
-				"Example: `192.168.1.1`", data[0])
+			"error: invalid IPv4 address: '%s' "+
+				"example: `192.168.1.1`", data[0])
 	}
 
 	return &net.UDPAddr{
@@ -76,8 +73,8 @@ func CheckAllowedIPs(ipAddr []string) ([]net.IPNet, error) {
 		_, ipnet, err := net.ParseCIDR(ips)
 		if err != nil {
 			return nil, fmt.Errorf(
-				"failed: Invalid CIDR format for Allowed IP address '%s'."+
-					"Example: 10.10.10.1/32",
+				"error: invalid CIDR format for allowed IP address '%s' "+
+					"example: 10.10.10.1/32",
 				ips,
 			)
 		}

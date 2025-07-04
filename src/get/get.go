@@ -106,7 +106,7 @@ func GetExistInterface(name string) (bool, error) {
 	interfaceName, err := net.Interfaces()
 	if err != nil {
 		return false, fmt.Errorf(
-			"error: Failed to get network interfaces: %s",
+			"error: failed to get network interfaces: %s",
 			err.Error(),
 		)
 	}
@@ -131,14 +131,14 @@ func GetIpNetInterface(name string) (int, []net.Addr, error) {
 	netIface, err := net.Interfaces()
 	if err != nil {
 		return -1, nil, fmt.Errorf(
-			"error: Failed to get network interfaces. %v", err.Error())
+			"error: failed to get network interfaces. %v", err.Error())
 	}
 	for _, iface := range netIface {
 
 		ipSlice, err := iface.Addrs()
 		if err != nil {
 			return -1, nil, fmt.Errorf(
-				"error: Failed to get IP address for interface '%s'. %s",
+				"error: failed to get IP address for interface '%s'. %s",
 				iface.Name,
 				err.Error(),
 			)
@@ -150,7 +150,7 @@ func GetIpNetInterface(name string) (int, []net.Addr, error) {
 	}
 
 	return -1, nil, fmt.Errorf(
-		"error: Network interface '%s' not found", name,
+		"error: network interface '%s' not found", name,
 	)
 }
 
@@ -181,7 +181,7 @@ func GetIp() ([]IpInterfaceStructure, error) {
 	var interfaces []IpInterfaceStructure
 	err = json.Unmarshal(jsonData, &interfaces)
 	if err != nil {
-		return nil, fmt.Errorf("error: Failed to unmarshal JSON, %v", err)
+		return nil, fmt.Errorf("error: failed to unmarshal JSON, %v", err)
 	}
 
 	return interfaces, nil
@@ -201,7 +201,7 @@ func GetIpShow(interfaceName string) ([]IpInterfaceStructure, error) {
 	err = json.Unmarshal(jsonData, &interfaces)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"error: Failed to unmarshal JSON for interface '%s', %v",
+			"error: failed to unmarshal JSON for interface '%s', %v",
 			interfaceName,
 			err,
 		)
@@ -293,7 +293,7 @@ func (p *FilterIptablesOutput) GetRuleId(id int) (IptablesOutput, error) {
 	if status {
 		return copied.Rule, nil
 	} else {
-		return IptablesOutput{}, fmt.Errorf("rule 'id:%d' not found", id)
+		return IptablesOutput{}, fmt.Errorf("error: rule 'id:%d' not found", id)
 	}
 
 }
@@ -380,7 +380,7 @@ func (p *FilterIptablesOutput) EndRule() IptablesOutput {
 func (p *FilterIptablesOutput) GetExistingRules(inIface, outIface, subnetCIDR string) (bool, error) {
 	_, _, err := net.ParseCIDR(subnetCIDR)
 	if err != nil {
-		return false, fmt.Errorf("error: Invalid IP address format: %s", subnetCIDR)
+		return false, fmt.Errorf("error: invalid IP address format: %s", subnetCIDR)
 	}
 
 	chains := p.Rule.Chains
@@ -426,12 +426,12 @@ func GetIPvForwarding() (map[string]int, error) {
 
 		parts := strings.SplitN(strings.TrimSpace(output.String()), "=", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("error: Invalid sysctl output: %s", output.String())
+			return nil, fmt.Errorf("error: invalid sysctl output: %s", output.String())
 		}
 
 		value, err := strconv.Atoi(strings.TrimSpace(parts[1]))
 		if err != nil {
-			return nil, fmt.Errorf("error: Invalid sysctl value: %s", parts[1])
+			return nil, fmt.Errorf("error: invalid sysctl value: %s", parts[1])
 		}
 
 		sysctlMap[keys[i]] = value
@@ -463,7 +463,7 @@ func GetIPvForwarding() (map[string]int, error) {
 func GetPeer(interfaceName string) ([]*wgtypes.Device, error) {
 	newClient, err := handlers.InitWgCtlClient()
 	if err != nil {
-		return nil, fmt.Errorf("error: Failed to open wgctrl, %v", err)
+		return nil, fmt.Errorf("error: failed to open wgctrl, %v", err)
 	}
 	defer newClient.Close()
 
@@ -472,13 +472,13 @@ func GetPeer(interfaceName string) ([]*wgtypes.Device, error) {
 	if interfaceName != "" {
 		device, err := newClient.Device(interfaceName)
 		if err != nil {
-			return nil, fmt.Errorf("error: Failed to get device %q, %v", interfaceName, err)
+			return nil, fmt.Errorf("error: failed to get device %q, %v", interfaceName, err)
 		}
 		devices = append(devices, device)
 	} else {
 		devices, err = newClient.Devices()
 		if err != nil {
-			return nil, fmt.Errorf("error: Failed to get devices, %v", err)
+			return nil, fmt.Errorf("error: failed to get devices, %v", err)
 		}
 	}
 

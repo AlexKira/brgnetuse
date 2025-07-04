@@ -28,11 +28,6 @@ import (
 
 const Env_Wg_Process_Forenground string = "WG_PROCESS_FOREGROUND"
 
-var DefaultErrorMessage string = fmt.Sprintf(
-	"Arguments passed incorrectly. Ask for help: [%s]",
-	help.HelpFlag,
-)
-
 // Main entry point.
 func main() {
 
@@ -75,7 +70,7 @@ func main() {
 								if isLogLevel == 0 {
 									help.ErrorExitMessage(
 										os.Args[indx],
-										"Logging level not found",
+										"error: logging level not found",
 									)
 									os.Exit(help.ExitSetupFailed)
 								}
@@ -93,8 +88,8 @@ func main() {
 								help.ErrorExitMessage(
 									help.PathLogDirFlag,
 									fmt.Sprintf(
-										"Argument passed incorrectly. "+
-											"Example: [%s wg0 %s %s %s]",
+										"error: argument passed incorrectly, "+
+											"example: '%s wg0 %s %s %s'",
 										help.WgInterfaceFlag,
 										help.PathLogDirFlag,
 										pathLogDir,
@@ -108,8 +103,8 @@ func main() {
 							help.ErrorExitMessage(
 								help.PathLogDirFlag,
 								fmt.Sprintf(
-									"Argument passed incorrectly. "+
-										"Example: [%s wg0 %s /var/log %s]",
+									"error: argument passed incorrectly, "+
+										"example: '%s wg0 %s /var/log %s'",
 									help.WgInterfaceFlag,
 									help.PathLogDirFlag,
 									help.LogErrorFlag,
@@ -125,10 +120,10 @@ func main() {
 			} else {
 				help.ErrorExitMessage(
 					help.WgInterfaceFlag,
-					fmt.Sprintf("Invalid argument passed. Pass [%s], "+
-						"followed by a valid WireGuard interface name "+
-						"(e.g. [%s wg0], [%s wg1], etc.)",
-						help.WgInterfaceFlag,
+					fmt.Sprintf(
+						"error: invalid argument passed, pass '%s', "+
+							"followed by a valid WireGuard interface name "+
+							"(e.g. '%s wg0', etc.)",
 						help.WgInterfaceFlag,
 						help.WgInterfaceFlag,
 					),
@@ -139,7 +134,7 @@ func main() {
 		} else {
 			help.ErrorExitMessage(
 				os.Args[len(os.Args)-1],
-				DefaultErrorMessage,
+				help.DefaultErrorMessage,
 			)
 			os.Exit(help.ExitSetupFailed)
 		}
@@ -171,7 +166,7 @@ func main() {
 		if err != nil {
 			help.ErrorExitMessage(
 				"",
-				fmt.Sprintf("Failed to create logfile: %v", err),
+				fmt.Sprintf("error: failed to create logfile, %v", err),
 			)
 			os.Exit(help.ExitSetupFailed)
 		}
@@ -186,7 +181,7 @@ func main() {
 	if err != nil {
 		help.ErrorExitMessage(
 			"",
-			fmt.Sprintf("Failed starting background process: %v", err),
+			fmt.Sprintf("error: failed starting background process, %v", err),
 		)
 		os.Exit(help.ExitSetupFailed)
 	}

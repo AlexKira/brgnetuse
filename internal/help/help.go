@@ -86,36 +86,47 @@ func BridgeSetWgHelp() {
 	fmt.Fprintln(os.Stderr, "│                                                                                       │")
 	fmt.Fprintln(os.Stderr, "│    [-h]                          Help.                                                │")
 	fmt.Fprintln(os.Stderr, "│    |_[-i][name]                  Wireguard network interface name.                    │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |_[-d]                Remove Wireguard Network Interface.                  │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |_[-up]               Enable network interface.                            │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |_[-dw]               Disable network interface.                           │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |_[-u]                                                                     │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |   |_[-p][number]    Update port.                                         │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |   |_[-pk]           Update private key Wireguard network interface.      │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |       |_[key]       Your private key in base64 encoding.                 │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |                                                                          │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |_[-pr][pub_key]      Add peer for the Wireguard network interface.        │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |   |_[-a][address]   Allowed IP address in CIDR notation.                 │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |   |_[-kp][number]   Persistent keepalive interval in seconds.            │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |   |_[-eh][address]  Endpoint host.                                       │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |                                                                          │")
-	fmt.Fprintln(os.Stderr, "│    |   |   |_[-pr][pub_key][-d]  Delete peer for the Wireguard network interface.     │")
+	fmt.Fprintln(os.Stderr, "│    |   |_[-d]                    Remove Wireguard Network Interface.                  │")
+	fmt.Fprintln(os.Stderr, "│    |   |_[-up]                   Enable network interface.                            │")
+	fmt.Fprintln(os.Stderr, "│    |   |_[-dw]                   Disable network interface.                           │")
+	fmt.Fprintln(os.Stderr, "│    |   |                                                                              │")
+	fmt.Fprintln(os.Stderr, "│    |   |_[-u]                                                                         │")
+	fmt.Fprintln(os.Stderr, "│    |   |   |_[-p][number]        Update port.                                         │")
+	fmt.Fprintln(os.Stderr, "│    |   |   |_[-pk]               Update private key Wireguard network interface.      │")
+	fmt.Fprintln(os.Stderr, "│    |   |        |_[key]          Your private key in base64 encoding.                 │")
+	fmt.Fprintln(os.Stderr, "│    |   |                                                                              │")
+	fmt.Fprintln(os.Stderr, "│    |   |_[-pr][pub_key]          Add peer for the Wireguard network interface.        │")
+	fmt.Fprintln(os.Stderr, "│    |   |    |_[-a][address]      Allowed IP address in CIDR notation.                 │")
+	fmt.Fprintln(os.Stderr, "│    |   |    |_[-kp][number]      Persistent keepalive interval in seconds.            │")
+	fmt.Fprintln(os.Stderr, "│    |   |    |_[-eh][address]     Endpoint host.                                       │")
+	fmt.Fprintln(os.Stderr, "│    |   |                                                                              │")
+	fmt.Fprintln(os.Stderr, "│    |   |_[-pr][pub_key][-d]      Delete peer for the Wireguard network interface.     │")
 	fmt.Fprintln(os.Stderr, "│    |   |                                                                              │")
 	fmt.Fprintln(os.Stderr, "│    |   |_[-ip][address]          IP address in CIDR notation.                         │")
-	fmt.Fprintln(os.Stderr, "│    |       |_[-a]                Add IP address for network interface.                │")
-	fmt.Fprintln(os.Stderr, "│    |       |   |_[-n]            Automatically add NAT rules.                         │")
-	fmt.Fprintln(os.Stderr, "│    |       |       |_[name]      Network interface name.                              │")
-	fmt.Fprintln(os.Stderr, "│    |       |_[-d]                Delete IP address of network interfake.              │")
-	fmt.Fprintln(os.Stderr, "│    |           |_[-n] or [-fr]   Delete NAT or Firewall rules.                        │")
-	fmt.Fprintln(os.Stderr, "│    |                  |_[name]   Network interface name.                              │")
+	fmt.Fprintln(os.Stderr, "│    |        |_[-a]               Add IP address for network interface.                │")
+	fmt.Fprintln(os.Stderr, "│    |        |   |                                                                     │")
+	fmt.Fprintln(os.Stderr, "│    |        |   |_[-n] or [-fr]  Automatically add NAT rules.                         │")
+	fmt.Fprintln(os.Stderr, "│    |        |          |_[name]  Network interface name.                              │")
+	fmt.Fprintln(os.Stderr, "│    |        |                                                                         │")
+	fmt.Fprintln(os.Stderr, "│    |        |_[-d]               Delete IP address of network interface.              │")
+	fmt.Fprintln(os.Stderr, "│    |            |_[-n]           Delete NAT rules.                                    │")
+	fmt.Fprintln(os.Stderr, "│    |            |   |_[name]     Network interface name.                              │")
+	fmt.Fprintln(os.Stderr, "│    |            |                                                                     │")
+	fmt.Fprintln(os.Stderr, "│    |            |_[-fr]          Delete Firewall rules.                               │")
+	fmt.Fprintln(os.Stderr, "│    |                |_[name]     Network interface name.                              │")
 	fmt.Fprintln(os.Stderr, "│    |                                                                                  │")
 	fmt.Fprintln(os.Stderr, "│    |_[-fw4]                      Forwarding `IPV4` between network interfaces.        │")
 	fmt.Fprintln(os.Stderr, "│    |    |_[-a]                   Enable.                                              │")
 	fmt.Fprintln(os.Stderr, "│    |    |_[-d]                   Disable.                                             │")
 	fmt.Fprintln(os.Stderr, "│    |                                                                                  │")
 	fmt.Fprintln(os.Stderr, "│    |_[-fw6]                      Forwarding `IPV6` between network interfaces.        │")
-	fmt.Fprintln(os.Stderr, "│         |_[-a]                   Enable.                                              │")
-	fmt.Fprintln(os.Stderr, "│         |_[-d]                   Disable.                                             │")
+	fmt.Fprintln(os.Stderr, "│    |    |_[-a]                   Enable.                                              │")
+	fmt.Fprintln(os.Stderr, "│    |    |_[-d]                   Disable.                                             │")
+	fmt.Fprintln(os.Stderr, "│    |                                                                                  │")
+	fmt.Fprintln(os.Stderr, "│    |_[-fr]                       Additional Firewall Commands.                        │")
+	fmt.Fprintln(os.Stderr, "│         |_[-u]                   Type: UDP.                                           │")
+	fmt.Fprintln(os.Stderr, "│             |_[-a][number]       Add port number to table.                            │")
+	fmt.Fprintln(os.Stderr, "│             |_[-d][number]       Delete port number from table.                       │")
 	fmt.Fprintln(os.Stderr, "│                                                                                       │")
 	fmt.Fprintln(os.Stderr, "│  Example:                                                                             │")
 	fmt.Fprintln(os.Stderr, "|  ___________________________________________________________________________________  |")
@@ -174,6 +185,12 @@ func BridgeSetWgHelp() {
 	fmt.Fprintln(os.Stderr, "│   Forwarding `IPV6` between network interfaces:                                       │")
 	fmt.Fprintln(os.Stderr, "│     brgsetwg -fw6 -a                                                                  │")
 	fmt.Fprintln(os.Stderr, "│     brgsetwg -fw6 -d                                                                  │")
+	fmt.Fprintln(os.Stderr, "│                                                                                       │")
+	fmt.Fprintln(os.Stderr, "│   Command to add a UDP port rule to the firewall:                                     │")
+	fmt.Fprintln(os.Stderr, "│     brgsetwg -fr -u -a 51820                                                          │")
+	fmt.Fprintln(os.Stderr, "│                                                                                       │")
+	fmt.Fprintln(os.Stderr, "│   Command to drop a UDP port rule in the firewall:                                    │")
+	fmt.Fprintln(os.Stderr, "│     brgsetwg -fr -u -d 51820                                                          │")
 	fmt.Fprintln(os.Stderr, "│                                                                                       │")
 	fmt.Fprintln(os.Stderr, "│                                                                                       │")
 	fmt.Fprintln(os.Stderr, "│  Useful commands:                                                                     │")
@@ -270,10 +287,17 @@ func BridgeGetWgHelp() {
 	fmt.Fprintln(os.Stderr, "└──────────────────────────────────────────────────────────────────────┘")
 }
 
+// DefaultErrorMessage provides a standard message for
+// incorrect arguments, prompting users to seek help.
+var DefaultErrorMessage string = fmt.Sprintf(
+	"error: arguments passed incorrectly, ask for help: '%s'",
+	HelpFlag,
+)
+
 // Function for outputting error information to the console.
 func ErrorExitMessage(flag, msg string) {
 	if flag != "" {
-		fmt.Printf("Error starting program, parameter: [%s]\n", flag)
+		fmt.Printf("error: invalid input parameter: '%s'\n", flag)
 	}
 	fmt.Printf("%s\n", msg)
 }
@@ -284,7 +308,7 @@ func WgInterfaceNameValid(flag, name string) string {
 
 	if strings.ContainsAny(name, RegexSymbols) {
 		msg = fmt.Sprintf(
-			"Invalid character in interface name [%s]. Example: wg0, wg1",
+			"error: invalid character in interface name '%s'. Example: wg0, wg1",
 			name,
 		)
 		ErrorExitMessage(flag, msg)
@@ -296,7 +320,7 @@ func WgInterfaceNameValid(flag, name string) string {
 		ErrorExitMessage(
 			EnableWgInterfaceFlag,
 			fmt.Sprintf(
-				"Failed getting network interfaces [%s]. %v",
+				"error: failed getting network interfaces '%s', %v",
 				name,
 				err,
 			))
@@ -307,7 +331,7 @@ func WgInterfaceNameValid(flag, name string) string {
 		ErrorExitMessage(
 			WgInterfaceFlag,
 			fmt.Sprintf(
-				"Network interface name [%s] already exists",
+				"error: network interface name '%s' already exists",
 				name,
 			),
 		)
@@ -321,7 +345,7 @@ func PortValid(flag, port string) string {
 	re := regexp.MustCompile(`^\d+$`)
 	if strings.ContainsAny(port, RegexSymbols) || !re.MatchString(port) {
 		msg := fmt.Sprintf(
-			"Port must not contain symbols [%s]. Example: 51820, 51821",
+			"error: port must not contain symbols '%s', example: 51820, 51821",
 			port,
 		)
 		ErrorExitMessage(flag, msg)
@@ -340,7 +364,7 @@ func PortValid(flag, port string) string {
 func PathLogDirValid(flag, path string) string {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		msg := fmt.Sprintf(
-			"Failed: `%s` does not exist",
+			"error: `%s` does not exist",
 			path,
 		)
 		ErrorExitMessage(flag, msg)
@@ -356,7 +380,7 @@ func IpAddressValid(flag, address string) (net.IP, *net.IPNet) {
 		ErrorExitMessage(
 			flag,
 			fmt.Sprintf(
-				"Invalid IP address format: [%s]. Example: 10.10.10.1/24",
+				"error: invalid IP address format '%s' example: 10.10.10.1/24",
 				address,
 			),
 		)
