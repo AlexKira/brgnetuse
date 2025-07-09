@@ -277,6 +277,7 @@ func (p *FilterIptablesOutput) GetRuleId(id int) (IptablesOutput, error) {
 						Out:         current.Out,
 						Source:      current.Source,
 						Destination: current.Destination,
+						Options:     current.Options,
 					},
 				}
 				copied.Rule.Chains[indx].Rules = rule
@@ -323,6 +324,7 @@ func (p *FilterIptablesOutput) FirstRule() IptablesOutput {
 					Out:         current.Out,
 					Source:      current.Source,
 					Destination: current.Destination,
+					Options:     current.Options,
 				},
 			}
 			copied.Rule.Chains[indx].Rules = rule
@@ -359,6 +361,7 @@ func (p *FilterIptablesOutput) EndRule() IptablesOutput {
 					Out:         current.Out,
 					Source:      current.Source,
 					Destination: current.Destination,
+					Options:     current.Options,
 				},
 			}
 			copied.Rule.Chains[indx].Rules = rule
