@@ -71,6 +71,11 @@ type IptablesRule struct {
 	// Destination specifies the destination address or network that
 	// this rule applies to.
 	Destination string
+
+	// Options specifies any additional match extensions or parameters for the rule,
+	// such as connection state (e.g., "ctstate RELATED,ESTABLISHED")
+	// or specific protocol options (e.g., "tcp dpt:22").
+	Options string
 }
 
 // IptablesChain represents an iptables chain, which is a collection of rules.

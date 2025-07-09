@@ -320,8 +320,9 @@ policy: %s
 packets: %d
 bytes: %d
 `
-	rulesFormat := `Rules: %d, Pkts: %d, Bytes: %d, Target: %s, Prot: %s, Opt: %s, In: %s, Out: %s, Source: %s, Destination: %s
-`
+	rulesFormat := "Rules: %d, Pkts: %d, Bytes: %d, Target: %s, " +
+		"Prot: %s, Opt: %s, In: %s, Out: %s, Source: %s, " +
+		"Destination: %s, Options: %s\n"
 
 	for _, val := range result.Chains {
 		fmt.Printf(
@@ -335,6 +336,11 @@ bytes: %d
 			fmt.Println("Rules: none")
 		} else {
 			for _, val := range val.Rules {
+
+				if val.Options == "" {
+					val.Options = "none"
+				}
+
 				fmt.Printf(
 					rulesFormat,
 					val.Id,
@@ -347,6 +353,7 @@ bytes: %d
 					val.Out,
 					val.Source,
 					val.Destination,
+					val.Options,
 				)
 			}
 		}

@@ -87,10 +87,10 @@ func parseIptablesOutput(output string) (IptablesOutput, error) {
 					Source:      parts[7],
 					Destination: parts[8],
 				}
-				// Note: This parsing assumes Source is parts[7] and Destination is parts[8].
-				// For rules with extended matches (e.g., "ctstate RELATED,ESTABLISHED"),
-				// parts[9] and beyond would contain these extensions.
-				// For this struct, we only capture the basic Source/Destination.
+
+				if len(parts) >= 9 {
+					rule.Options = strings.Join(parts[9:], " ")
+				}
 
 				currentChain.Rules = append(currentChain.Rules, rule)
 				ruleIdCounter++
