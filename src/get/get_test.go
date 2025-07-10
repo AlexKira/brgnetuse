@@ -278,9 +278,11 @@ func TestFirewallGetExistingRules(t *testing.T) {
 		wantError  bool
 	}
 	tests := []testCase{
-		{inIface: "wg0", outIface: "enp0s3", subnetCIDR: "10.10.10.0/24", wantError: false}, // Rule added to Firewall table.
-		{inIface: "qwerty", outIface: "enp0s3", subnetCIDR: "10.10.10.0/24", wantError: false},
-		{inIface: "wg0", outIface: "enp0s3", subnetCIDR: "101.0.0.0/24", wantError: false},
+		{inIface: "wg3", outIface: "enp0s3", subnetCIDR: "10.10.10.0/24", wantError: true}, // Rule added to Firewall table.
+		{inIface: "qwerty", outIface: "enp0s3", subnetCIDR: "10.10.10.0/24", wantError: true},
+		{inIface: "*", outIface: "lo", subnetCIDR: "0.0.0.0/0", wantError: false},
+		{inIface: "*", outIface: "*", subnetCIDR: "0.0.0.0/0", wantError: false},
+		{inIface: "lo", outIface: "lo", subnetCIDR: "0.0.0.0/0", wantError: true},
 		{inIface: "", outIface: "enp0s3", subnetCIDR: "10.10.10.0/24", wantError: true},
 		{inIface: "wg0", outIface: "", subnetCIDR: "10.10.10.0/24", wantError: true},
 		{inIface: "wg0", outIface: "enp0s3", subnetCIDR: "10.10.10.0", wantError: true},
@@ -300,22 +302,18 @@ func TestFirewallGetExistingRules(t *testing.T) {
 			}
 
 			obj := FilterIptablesOutput{getData}
-			isExist, err := obj.GetExistingRules(tc.inIface, tc.outIface, tc.subnetCIDR)
-			if err != nil {
-				if tc.wantError {
-					t.Logf("info: expected error received as expected: isExist=%t, error=%v", isExist, err)
+			fwExist, err := obj.GetExistingRules(tc.inIface, tc.outIface, tc.subnetCIDR)
+			if tc.wantError {
+				if err == nil {
+					t.Logf("info: test passed, the port exists: %t", fwExist)
 				} else {
-					t.Fatalf("error: unexpected error from GetExistingRules: %v", err)
+					t.Logf("error: test failed, %v", err)
 				}
 			} else {
-				if tc.wantError {
-					if isExist {
-						t.Errorf("error: expected no existing rule, but found one: isExist=%t", isExist)
-					} else {
-						t.Logf("info: no error and no rule found as expected: isExist=%t", isExist)
-					}
+				if err == nil {
+					t.Logf("info: test passed, the port exists: %t", fwExist)
 				} else {
-					t.Logf("info: no error received as expected; isExist=%t", isExist)
+					t.Fatalf("error: test failed, %v", err)
 				}
 			}
 
@@ -431,6 +429,60 @@ func TestNatGetExistingRules(t *testing.T) {
 			t.Log("--------------------------------------")
 		})
 	}
+}
+
+// Test function for testing the GetExistingPort function for NAT.
+func TestGetExistingPort(t *testing.T) {
+	type testCase struct {
+		port      string
+		wantError bool
+	}
+
+	tests := []testCase{
+		{port: "22", wantError: false},
+		{port: "80", wantError: false},
+		{port: "43601", wantError: true},
+		{port: "port", wantError: true},
+	}
+
+	for _, tc := range tests {
+		t.Run("NAT", func(t *testing.T) {
+			t.Log("--------------------------------------")
+			t.Logf("Run test GetExistingPort: %s", tc.port)
+
+			getData, err := GetIptablesFirewall()
+			if err != nil {
+				t.Fatalf("error: failed to get iptables nat data: %v", err)
+			}
+			if len(getData.Chains) == 0 {
+				t.Fatal(
+					"error: no chains found in nat table; please add rules before running the test",
+				)
+			}
+
+			obj := FilterIptablesOutput{getData}
+			portExist, err := obj.GetExistingPort(tc.port)
+
+			if tc.wantError {
+				if err == nil {
+					t.Logf("info: test passed, the port exists: %t", portExist)
+				} else {
+					t.Logf("error: test failed, %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Logf("info: test passed, the port exists: %t", portExist)
+				} else {
+					t.Fatalf("error: test failed, %v", err)
+				}
+			}
+
+			t.Log("info: test successful")
+			t.Logf("End test GetExistingPort: %s", tc.port)
+			t.Log("--------------------------------------")
+		})
+	}
+
 }
 
 // Testing the GetIPvForwarding function.

@@ -310,26 +310,46 @@ func (p *FilterIptablesOutput) GetRuleId(id int) (IptablesOutput, error) {
 // matches (or is "0.0.0.0/0") the given parameters.
 // Returns true if such a rule is found, false otherwise. Returns an error if the subnetCIDR is invalid.
 func (p *FilterIptablesOutput) GetExistingRules(inIface, outIface, subnetCIDR string) (bool, error) {
+
 	_, _, err := net.ParseCIDR(subnetCIDR)
 	if err != nil {
 		return false, fmt.Errorf("error: invalid IP address format: %s", subnetCIDR)
 	}
 
-	chains := p.Rule.Chains
+	for _, chain := range p.Rule.Chains {
+		for _, existingRule := range chain.Rules {
 
-	if len(chains) > 0 {
-		for _, chain := range chains {
-			if len(chain.Rules) > 0 {
-				for _, existingRule := range chain.Rules {
+			inMatch := existingRule.In == inIface || existingRule.In == "any"
+			outMatch := existingRule.Out == outIface
+			subnetMatch := existingRule.Source == subnetCIDR || existingRule.Source == "0.0.0.0/0"
 
-					inMatch := existingRule.In == inIface || existingRule.In == "any"
-					outMatch := existingRule.Out == outIface
-					subnetMatch := existingRule.Source == subnetCIDR || existingRule.Source == "0.0.0.0/0"
+			if inMatch && outMatch && subnetMatch {
+				return true, nil
+			}
+		}
 
-					if inMatch && outMatch && subnetMatch {
-						return true, nil
-					}
-				}
+	}
+
+	return false, nil
+}
+
+// Method checks whether the specified port exists in the options of iptables rules.
+//
+// The function takes the port as a string and verifies that it is a number.
+// It then iterates over all chains and their rules,
+// returning true if the port is found in the Options field of any rule.
+// If the port string cannot be converted to a number, an error is returned.
+// If the port is not found, the function returns false without an error.
+func (p *FilterIptablesOutput) GetExistingPort(port string) (bool, error) {
+
+	if _, err := strconv.Atoi(port); err != nil {
+		return false, fmt.Errorf("error: port must be a number, %v", err)
+	}
+
+	for _, chain := range p.Rule.Chains {
+		for _, rule := range chain.Rules {
+			if strings.Contains(rule.Options, port) {
+				return true, nil
 			}
 		}
 	}
