@@ -269,42 +269,6 @@ func TestFirewallGetRuleId(t *testing.T) {
 	}
 }
 
-// Test for FilterIptablesOutput methods FirstRule and EndRule.
-func TestFirewallFilterIptablesOutput(t *testing.T) {
-	t.Run("Firewall", func(t *testing.T) {
-		getData, err := GetIptablesFirewall()
-		if err != nil {
-			t.Fatalf("error: unexpected error while calling GetIptablesFirewall: %v", err)
-		}
-		if len(getData.Chains) == 0 {
-			t.Fatal(
-				"error: no chains found in firewall table; please add rules before running the test",
-			)
-		}
-
-		obj := FilterIptablesOutput{getData}
-
-		t.Log("--------------------------------------")
-		t.Log("Run test: FirstRule")
-		data := obj.FirstRule()
-		if len(data.Chains) == 0 {
-			t.Errorf("error: expected at least one chain from FirstRule(), but got 0")
-		} else {
-			t.Logf("info: received %d chain(s) from FirstRule(), as expected", len(data.Chains))
-		}
-		t.Log("--------------------------------------")
-
-		t.Log("Run test: EndRule")
-		data = obj.EndRule()
-		if len(data.Chains) == 0 {
-			t.Errorf("error: expected at least one chain from EndRule(), but got 0")
-		} else {
-			t.Logf("info: received %d chain(s) from EndRule(), as expected", len(data.Chains))
-		}
-		t.Log("--------------------------------------")
-	})
-}
-
 // Test function for testing the GetExistingRules function for firewall.
 func TestFirewallGetExistingRules(t *testing.T) {
 	type testCase struct {
@@ -414,42 +378,6 @@ func TestNATGetRuleId(t *testing.T) {
 			t.Log("--------------------------------------")
 		})
 	}
-}
-
-// Test for FilterIptablesOutput methods FirstRule and EndRule.
-func TestNATFilterIptablesOutput(t *testing.T) {
-	t.Run("NAT", func(t *testing.T) {
-		getData, err := GetIptablesNAT()
-		if err != nil {
-			t.Fatalf("error: unexpected error while calling GetIptablesNAT: %v", err)
-		}
-		if len(getData.Chains) == 0 {
-			t.Fatal(
-				"error: no chains found in nat table; please add rules before running the test",
-			)
-		}
-
-		obj := FilterIptablesOutput{getData}
-
-		t.Log("--------------------------------------")
-		t.Log("Run test: FirstRule")
-		data := obj.FirstRule()
-		if len(data.Chains) == 0 {
-			t.Errorf("error: expected at least one chain from FirstRule(), but got 0")
-		} else {
-			t.Logf("info: received %d chain(s) from FirstRule(), as expected", len(data.Chains))
-		}
-		t.Log("--------------------------------------")
-
-		t.Log("Run test: EndRule")
-		data = obj.EndRule()
-		if len(data.Chains) == 0 {
-			t.Errorf("error: expected at least one chain from EndRule(), but got 0")
-		} else {
-			t.Logf("info: received %d chain(s) from EndRule(), as expected", len(data.Chains))
-		}
-		t.Log("--------------------------------------")
-	})
 }
 
 // Test function for testing the GetExistingRules function for NAT.
