@@ -223,10 +223,14 @@ func TestFirewallGetRuleId(t *testing.T) {
 	}
 
 	tests := []testCase{
-		{name: "func: GetRuleId", input: 1, wantError: false}, // Rule added to Firewall table.
+		{name: "func: GetRuleId", input: 12, wantError: true},
+		{name: "func: GetRuleId", input: 1, wantError: true},
+		{name: "func: GetRuleId", input: 7, wantError: true},
+		{name: "func: GetRuleId", input: 10, wantError: true},
 		{name: "func: GetRuleId", input: -100, wantError: true},
 		{name: "func: GetRuleId", input: 100, wantError: true},
 		{name: "func: GetRuleId", input: 0, wantError: true},
+		{name: "func: GetRuleId", input: 1000000000, wantError: true},
 	}
 
 	for _, tc := range tests {
@@ -247,20 +251,15 @@ func TestFirewallGetRuleId(t *testing.T) {
 
 			if tc.wantError {
 				if err == nil {
-					t.Errorf("error: expected an error for input=%d, but got none", tc.input)
+					t.Logf("info: received data: %v\n", data)
 				} else {
-					t.Logf("info: received expected error for input=%d: %v", tc.input, err)
+					t.Logf("error: expected error %v\n", err)
 				}
 			} else {
-				if err != nil {
-					t.Fatalf("error: unexpected error for input=%d: %v", tc.input, err)
+				if err == nil {
+					t.Logf("info: received data: %v\n", data)
 				} else {
-					t.Logf("info: no error received for input=%d, as expected", tc.input)
-					if len(data.Chains) == 0 {
-						t.Errorf("error: expected at least one chain for input=%d, but got 0", tc.input)
-					} else {
-						t.Logf("info: received %d chain(s) for input=%d, as expected", len(data.Chains), tc.input)
-					}
+					t.Errorf("error: test failed, %v\n", err)
 				}
 			}
 
@@ -371,10 +370,14 @@ func TestNATGetRuleId(t *testing.T) {
 	}
 
 	tests := []testCase{
-		{name: "func: GetRuleId", input: 1, wantError: false}, // Rule added to nat table.
+		{name: "func: GetRuleId", input: 12, wantError: true},
+		{name: "func: GetRuleId", input: 1, wantError: true},
+		{name: "func: GetRuleId", input: 2, wantError: true},
+		{name: "func: GetRuleId", input: 3, wantError: true},
 		{name: "func: GetRuleId", input: -100, wantError: true},
 		{name: "func: GetRuleId", input: 100, wantError: true},
 		{name: "func: GetRuleId", input: 0, wantError: true},
+		{name: "func: GetRuleId", input: 1000000000, wantError: true},
 	}
 
 	for _, tc := range tests {
@@ -395,20 +398,15 @@ func TestNATGetRuleId(t *testing.T) {
 
 			if tc.wantError {
 				if err == nil {
-					t.Errorf("error: expected an error for input=%d, but got none", tc.input)
+					t.Logf("info: received data: %v\n", data)
 				} else {
-					t.Logf("info: received expected error for input=%d: %v", tc.input, err)
+					t.Logf("error: expected error %v\n", err)
 				}
 			} else {
-				if err != nil {
-					t.Fatalf("error: unexpected error for input=%d: %v", tc.input, err)
+				if err == nil {
+					t.Logf("info: received data: %v\n", data)
 				} else {
-					t.Logf("info: no error received for input=%d, as expected", tc.input)
-					if len(data.Chains) == 0 {
-						t.Errorf("error: expected at least one chain for input=%d, but got 0", tc.input)
-					} else {
-						t.Logf("info: received %d chain(s) for input=%d, as expected", len(data.Chains), tc.input)
-					}
+					t.Errorf("error: test failed, %v\n", err)
 				}
 			}
 

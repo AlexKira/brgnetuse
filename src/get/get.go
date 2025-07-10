@@ -256,46 +256,50 @@ type FilterIptablesOutput struct {
 // the IptablesRule. The function operates on a copy of the FilterIptablesOutput
 // to avoid modifying the original data.
 func (p *FilterIptablesOutput) GetRuleId(id int) (IptablesOutput, error) {
-	var status bool
+
+	if id <= 0 {
+		return IptablesOutput{}, fmt.Errorf("error: rule 'id:%d' must be > 0", id)
+	}
 
 	copied := *p
 	copied.Rule.Chains = make([]IptablesChain, len(p.Rule.Chains))
 
-	for indx, val := range p.Rule.Chains {
-		if len(val.Rules) > 0 && id <= len(val.Rules) && id > 0 {
-			current := val.Rules[id-1]
-			if current.Id == uint64(id) {
-				rule := []IptablesRule{
-					{
-						Id:          current.Id,
-						Pkts:        current.Pkts,
-						Bytes:       current.Bytes,
-						Target:      current.Target,
-						Prot:        current.Prot,
-						Opt:         current.Opt,
-						In:          current.In,
-						Out:         current.Out,
-						Source:      current.Source,
-						Destination: current.Destination,
-						Options:     current.Options,
-					},
-				}
-				copied.Rule.Chains[indx].Rules = rule
-				status = true
-			}
+	var currentTableRules []IptablesRule
+	var foundChainIndex int = -1
 
+	for indx, value := range p.Rule.Chains {
+
+		if len(value.Rules) == 0 {
+			continue
 		}
-		copied.Rule.Chains[indx].Name = val.Name
-		copied.Rule.Chains[indx].Bytes = val.Bytes
-		copied.Rule.Chains[indx].Policy = val.Policy
-		copied.Rule.Chains[indx].Packets = val.Packets
+
+		if uint64(id) <= p.Rule.Chains[indx].Rules[len(p.Rule.Chains[indx].Rules)-1].Id {
+			copied.Rule.Chains[indx].Name = value.Name
+			copied.Rule.Chains[indx].Bytes = value.Bytes
+			copied.Rule.Chains[indx].Policy = value.Policy
+			copied.Rule.Chains[indx].Packets = value.Packets
+
+			foundChainIndex = indx
+			currentTableRules = value.Rules
+			break
+		}
+
 	}
 
-	if status {
-		return copied.Rule, nil
-	} else {
+	if foundChainIndex == -1 {
 		return IptablesOutput{}, fmt.Errorf("error: rule 'id:%d' not found", id)
 	}
+
+	if len(currentTableRules) > 0 {
+		for _, rule := range currentTableRules {
+			if rule.Id == uint64(id) {
+				copied.Rule.Chains[foundChainIndex].Rules = append(
+					copied.Rule.Chains[foundChainIndex].Rules, rule)
+			}
+		}
+	}
+
+	return copied.Rule, nil
 
 }
 
