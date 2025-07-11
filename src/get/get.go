@@ -290,12 +290,10 @@ func (p *FilterIptablesOutput) GetRuleId(id int) (IptablesOutput, error) {
 		return IptablesOutput{}, fmt.Errorf("error: rule 'id:%d' not found", id)
 	}
 
-	if len(currentTableRules) > 0 {
-		for _, rule := range currentTableRules {
-			if rule.Id == uint64(id) {
-				copied.Rule.Chains[foundChainIndex].Rules = append(
-					copied.Rule.Chains[foundChainIndex].Rules, rule)
-			}
+	for _, rule := range currentTableRules {
+		if rule.Id == uint64(id) {
+			copied.Rule.Chains[foundChainIndex].Rules = append(
+				copied.Rule.Chains[foundChainIndex].Rules, rule)
 		}
 	}
 
