@@ -24,7 +24,7 @@ def main() -> None:
         "brgaddwg -i wg0 -l /var/log -le",
         "brgaddwg -i wg1 -l /var/log -ld",
         "brgaddwg -i wg2 -l /var/log -le -js",
-        "brgaddwg -i wg3 -l /var/log -ld -js"
+        "brgaddwg -i wg3 -m 1340 -l /var/log -ld -js"
     ]
 
     setList: list = [

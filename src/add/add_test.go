@@ -6,14 +6,14 @@ import (
 
 type TestConfig struct {
 	Name  string
-	Input WgLoggerStructure
+	Input WgStructure
 }
 
 func TestNewDevice(t *testing.T) {
 	var tests = []TestConfig{
 		{
 			Name: "Interface: '', LogLevel: 0, LoggingJSON: false",
-			Input: WgLoggerStructure{
+			Input: WgStructure{
 				InterfaceName: "",
 				LoggerName:    "test_logger",
 				LogLevel:      0,
@@ -21,27 +21,27 @@ func TestNewDevice(t *testing.T) {
 			},
 		},
 		{
-			Name: "Interface: wg0, LogLevel: 0, LoggingJSON: false",
-			Input: WgLoggerStructure{
-				InterfaceName: "wg0",
+			Name: "Interface: wgTest, LogLevel: 0, LoggingJSON: false",
+			Input: WgStructure{
+				InterfaceName: "wgTest",
 				LoggerName:    "test_logger",
 				LogLevel:      0,
 				LoggingJSON:   false,
 			},
 		},
 		{
-			Name: "Interface: wg0, LogLevel: 1, LoggingJSON: false",
-			Input: WgLoggerStructure{
-				InterfaceName: "wg0",
+			Name: "Interface: wgTest, LogLevel: 1, LoggingJSON: false",
+			Input: WgStructure{
+				InterfaceName: "wgTest",
 				LoggerName:    "test_logger",
 				LogLevel:      1,
 				LoggingJSON:   false,
 			},
 		},
 		{
-			Name: "Interface:wg0, LogLevel: 2, LoggingJSON: false",
-			Input: WgLoggerStructure{
-				InterfaceName: "wg0",
+			Name: "Interface:wgTest, LogLevel: 2, LoggingJSON: false",
+			Input: WgStructure{
+				InterfaceName: "wgTest",
 				LoggerName:    "test_logger",
 				LogLevel:      2,
 				LoggingJSON:   false,
@@ -49,7 +49,7 @@ func TestNewDevice(t *testing.T) {
 		},
 		{
 			Name: "Interface: !12s>?$, LogLevel: 2, LoggingJSON: false",
-			Input: WgLoggerStructure{
+			Input: WgStructure{
 				InterfaceName: "!12s>?$",
 				LoggerName:    "test_logger",
 				LogLevel:      0,
@@ -57,9 +57,9 @@ func TestNewDevice(t *testing.T) {
 			},
 		},
 		{
-			Name: "Interface: wg0, LogLevel: -100, LoggingJSON: true",
-			Input: WgLoggerStructure{
-				InterfaceName: "wg0",
+			Name: "Interface: wgTest, LogLevel: -100, LoggingJSON: true",
+			Input: WgStructure{
+				InterfaceName: "wgTest",
 				LoggerName:    "test_logger",
 				LogLevel:      -100,
 				LoggingJSON:   true,
@@ -74,7 +74,7 @@ func TestNewDevice(t *testing.T) {
 
 			errChan := make(chan error, 1)
 
-			go func(device WgLoggerStructure, errChan chan error) {
+			go func(device WgStructure, errChan chan error) {
 				err := device.NewDevice()
 				errChan <- err
 			}(tc.Input, errChan)

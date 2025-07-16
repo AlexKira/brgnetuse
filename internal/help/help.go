@@ -30,6 +30,7 @@ const (
 	PathLogDirFlag string = "-l"
 	LogInfoFlag    string = "-ld"
 	LogErrorFlag   string = "-le"
+	MTUFlag        string = "-m"
 
 	// Utility brgsetwg.
 	IpAddressFlag          string = "-ip"
@@ -56,7 +57,8 @@ func BridgeAddWgHelp() {
 	fmt.Fprintln(os.Stderr, "|  ______________________________________________________________    |")
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "│    [-h]           Help.                                            │")
-	fmt.Fprintln(os.Stderr, "│    |_[-i][name]   Wireguard network interface name.                │")
+	fmt.Fprintln(os.Stderr, "│    |_[-i][name]   Add Wireguard Network Interface Name.            │")
+	fmt.Fprintln(os.Stderr, "│    |_[-m][number] Add MTU size.                                    │")
 	fmt.Fprintln(os.Stderr, "│    |_[-l][path]   Add path to log file directory.                  │")
 	fmt.Fprintln(os.Stderr, "│        |_[-ld]    Logging level: Debug.                            │")
 	fmt.Fprintln(os.Stderr, "│        |_[-le]    Logging level: Error.                            │")
@@ -68,11 +70,13 @@ func BridgeAddWgHelp() {
 	fmt.Fprintln(os.Stderr, "│   Add Wireguard Network Interface Name:                            │")
 	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0                                                │")
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
+	fmt.Fprintln(os.Stderr, "│   Add MTU size:                                                    │")
+	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0 -m 1340                                        │")
+	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "│   Add path to log file directory:                                  │")
-	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0 -l /var/log -le                                │")
 	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0 -l /var/log -ld                                │")
 	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0 -l /var/log -le -js                            │")
-	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0 -l /var/log -ld -js                            │")
+	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0 -m 1340 -l /var/log -ld -js                    │")
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "└────────────────────────────────────────────────────────────────────┘")
 }

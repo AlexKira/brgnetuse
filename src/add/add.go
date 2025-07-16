@@ -37,11 +37,12 @@ import (
 const Version string = "0.0.20230223"
 
 // WgLoggerStructure represents the configuration for the WireGuard logger.
-type WgLoggerStructure struct {
+type WgStructure struct {
 	InterfaceName string // WireGuard interface name.
 	LoggerName    string // Logger name.
 	LogLevel      int    // Logging level (0-NULL, 1-ERROR, 2-DEBUG).
 	LoggingJSON   bool   // Flag indicating whether to use JSON format for logging.
+	MTU           int
 }
 
 // Method creates and configures a new WireGuard interface.
@@ -50,7 +51,7 @@ type WgLoggerStructure struct {
 //
 // ```go
 //
-//	device := add.WgLoggerStructure{
+//	device := add.WgStructure{
 //		LoggerName:    "brgaddwg",
 //		InterfaceName: "wg0",
 //		LogLevel:      2,
@@ -63,7 +64,7 @@ type WgLoggerStructure struct {
 //	}
 //
 // ```
-func (p *WgLoggerStructure) NewDevice() error {
+func (p *WgStructure) NewDevice() error {
 
 	var logger *device.Logger
 
@@ -89,8 +90,12 @@ func (p *WgLoggerStructure) NewDevice() error {
 		)
 	}
 
+	if p.MTU == 0 {
+		p.MTU = device.DefaultMTU
+	}
+
 	// Open TUN device (or use supplied fd)
-	tdev, err := tun.CreateTUN(p.InterfaceName, device.DefaultMTU)
+	tdev, err := tun.CreateTUN(p.InterfaceName, p.MTU)
 	if err == nil {
 		realInterfaceName, err2 := tdev.Name()
 		if err2 == nil {
