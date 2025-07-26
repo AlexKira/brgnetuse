@@ -13,14 +13,24 @@ Capabilities:
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"strings"
 
 	"github.com/AlexKira/brgnetuse/internal/help"
+	"github.com/AlexKira/brgnetuse/internal/shell"
 	"github.com/AlexKira/brgnetuse/src/get"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+)
+
+const (
+	Reset  = "\x1b[0m"
+	Green  = "\x1b[32m"
+	Bold   = "\x1b[1m"
+	Yellow = "\x1b[33m"
+	Cyan   = "\x1b[36m"
 )
 
 // Main entry point.
@@ -30,117 +40,143 @@ func main() {
 		return
 	}
 
-	switch os.Args[1] {
-	case help.WgInterfaceFlag:
-		if len(os.Args) == 4 {
-			iface, _ := get.GetExistInterface(os.Args[2])
-			if !iface {
-				help.ErrorExitMessage(
-					"",
-					fmt.Sprintf(
-						"error: network interface `%s` not found",
-						os.Args[2],
-					),
-				)
-				os.Exit(help.ExitSetupFailed)
-			}
+	lenghtArgs := len(os.Args) - 1
 
-			if os.Args[3] == help.IpAddressFlag {
-				if err := printIP(os.Args[2]); err != nil {
-					help.ErrorExitMessage(
-						"",
-						err.Error(),
-					)
-					os.Exit(help.ExitSetupFailed)
-				}
-			} else if os.Args[3] == help.PeerFlag {
-				if err := printWgInterface(os.Args[2]); err != nil {
-					help.ErrorExitMessage(
-						"",
-						err.Error(),
-					)
-					os.Exit(help.ExitSetupFailed)
-				}
-			} else {
-				help.ErrorExitMessage(
-					os.Args[1],
-					help.DefaultErrorMessage,
-				)
-				os.Exit(help.ExitSetupFailed)
-			}
-		} else {
-			help.ErrorExitMessage(
-				os.Args[1],
-				help.DefaultErrorMessage,
-			)
+	switch lenghtArgs {
+	case 3:
+		currentFlag, err := GetInterfaceCommnd(os.Args[1:])
+		if err != nil {
+			help.ErrorExitMessage(currentFlag, err.Error())
+			os.Exit(help.ExitSetupFailed)
+		}
+	case 1:
+		currentFlag, err := SingleCommand(os.Args[1])
+		if err != nil {
+			help.ErrorExitMessage(currentFlag, err.Error())
 			os.Exit(help.ExitSetupFailed)
 		}
 
+	default:
+		help.ErrorExitMessage(
+			os.Args[lenghtArgs],
+			help.DefaultErrorMessage,
+		)
+		os.Exit(help.ExitSetupFailed)
+	}
+
+}
+
+// Enables standard output for shell commands.
+const ShellStd bool = true
+
+// Function processes commands requiring an interface name and a sub-flag.
+// Expected format: `[main_flag] [interface_name] [sub_flag]`.
+// It validates arguments, confirms interface existence, and then performs actions
+// like displaying peers or IP addresses based on the sub-flag.
+// Returns the main flag string for error context or an error if validation/execution fails.
+func GetInterfaceCommnd(args []string) (string, error) {
+
+	var iFaceName string
+
+	if len(args) < 3 || len(args) > 3 {
+		return help.WgInterfaceFlag, errors.New(help.DefaultErrorMessage)
+	}
+
+	iFaceName = args[1]
+
+	iface, err := get.GetExistInterface(iFaceName)
+	if err != nil {
+		return help.WgInterfaceFlag, err
+	}
+	if !iface {
+		return help.WgInterfaceFlag, fmt.Errorf(
+			"error: network interface `%s` not found", iFaceName,
+		)
+	}
+
+	switch args[2] {
+	case help.PeerFlag:
+		typeCmd, err := help.CheckProcessTagExists(iFaceName, help.Env_Awg_Type)
+		if err != nil {
+			return help.PeerFlag, err
+		}
+
+		if typeCmd {
+			cmd := shell.FormatCmdAwgShow(iFaceName)
+			if err := shell.ShellCommand(cmd, ShellStd); err != nil {
+				return help.PeerFlag, err
+			}
+
+		} else {
+			if err := printWgInterface(iFaceName); err != nil {
+				return help.PeerFlag, err
+			}
+		}
+	case help.IpAddressFlag:
+		if err := printIP(iFaceName); err != nil {
+			return help.IpAddressFlag, err
+		}
+	default:
+		return help.WgInterfaceFlag, errors.New(help.DefaultErrorMessage)
+	}
+
+	return help.WgInterfaceFlag, nil
+}
+
+// Function handles single-flag operations that do not require additional
+// arguments. It dispatches to specific helper functions based on the provided
+// flag. Examples include displaying all IP addresses, generating keys, or showing
+// firewall rules. Returns the processed flag string (for error context)
+// or an error if an operation fails.
+func SingleCommand(flag string) (string, error) {
+
+	switch flag {
 	case help.IpAddressFlag:
 		if err := printIP(""); err != nil {
-			help.ErrorExitMessage(
-				"",
-				err.Error(),
-			)
-			os.Exit(help.ExitSetupFailed)
+			return help.IpAddressFlag, err
+		}
+	case help.PeerFlag:
+
+		if err := shell.ShellCommand(
+			shell.FormatCmdAwgShow(""), ShellStd); err != nil {
+			return help.PeerFlag, err
 		}
 
-	case help.PeerFlag:
 		if err := printWgInterface(""); err != nil {
-			help.ErrorExitMessage(
-				"",
-				err.Error(),
-			)
-			os.Exit(help.ExitSetupFailed)
+			return help.PeerFlag, err
 		}
+
 	case help.ForwardingFlag:
 		resultMap, err := get.GetIPvForwarding()
 		if err != nil {
-			help.ErrorExitMessage(
-				"",
-				err.Error(),
-			)
-			os.Exit(help.ExitSetupFailed)
+			return help.ForwardingFlag, err
 		}
 
 		printFw(resultMap)
 
 	case help.FirewallFlag:
 		if err := printRules(false); err != nil {
-			help.ErrorExitMessage(
-				"",
-				err.Error(),
-			)
-			os.Exit(help.ExitSetupFailed)
+			return help.FirewallFlag, err
 		}
+
 	case help.NatFlag:
 		if err := printRules(true); err != nil {
-			help.ErrorExitMessage(
-				"",
-				err.Error(),
-			)
-			os.Exit(help.ExitSetupFailed)
+			return help.NatFlag, err
 		}
 	case help.PrivateKeyFlag:
 		resultMap, err := get.GenerateKeys()
 		if err != nil {
-			help.ErrorExitMessage(
-				"",
-				err.Error(),
-			)
-			os.Exit(help.ExitSetupFailed)
+			return help.PrivateKeyFlag, err
 		}
 
 		printWgKey(resultMap)
 
 	default:
-		help.ErrorExitMessage(
-			os.Args[1],
-			help.DefaultErrorMessage,
-		)
-		os.Exit(help.ExitSetupFailed)
+		return flag, errors.New(help.DefaultErrorMessage)
+
 	}
 
+	return flag, nil
 }
 
 // Function to show network interface data.
@@ -242,19 +278,40 @@ func printWgInterface(name string) error {
 func printDevice(d *wgtypes.Device) {
 
 	interfaceFormat := `
-interface: %s (%s)
- private_key: (hidden)
- public_key: %s 
- listening_port: %d
-
+` + Green + Bold + `interface: ` + Reset + Green + `%s ` + Reset + `
+` + Bold + `  public key: ` + Reset + `%s` + ` 
+` + Bold + `  private key: ` + Reset + `(hidden)` + `
+` + Bold + `  listening port: ` + Reset + `%d` + `
 `
 	fmt.Printf(
 		interfaceFormat,
 		d.Name,
-		d.Type.String(),
 		d.PublicKey.String(),
 		d.ListenPort,
 	)
+}
+
+// Function formats byte counts into human-readable strings (B, KiB, MiB, GiB)
+// with units colored in Cyan.
+func formatBytes(bytes int64) string {
+	const (
+		_   = iota
+		KiB = 1 << (10 * iota) // 1 KiB = 1024 bytes
+		MiB = 1 << (10 * iota) // 1 MiB = 1024 KiB
+		GiB = 1 << (10 * iota)
+	)
+
+	fBytes := float64(bytes)
+	switch {
+	case fBytes >= GiB:
+		return fmt.Sprintf("%.2f %sGiB%s", fBytes/GiB, Cyan, Reset)
+	case fBytes >= MiB:
+		return fmt.Sprintf("%.2f %sMiB%s", fBytes/MiB, Cyan, Reset)
+	case fBytes >= KiB:
+		return fmt.Sprintf("%.2f %sKiB%s", fBytes/KiB, Cyan, Reset)
+	default:
+		return fmt.Sprintf("%d %sB%s", bytes, Cyan, Reset)
+	}
 }
 
 // Function to parse WireGuard peer information.
@@ -264,24 +321,23 @@ func printPeer(p wgtypes.Peer) {
 		for _, ipn := range ipns {
 			ss = append(ss, ipn.String())
 		}
+
 		return strings.Join(ss, ", ")
 	}
 
 	fmt.Printf(`
-peer: %s,
-  endpoint: %s
-  allowed_ips: %s
-  latest_handshake: %s
-  transfer: %d B received, %d B sent
-
+`+Bold+Yellow+`peer: `+Reset+Yellow+`%s`+Reset+`
+`+Bold+`  endpoint: `+Reset+`%s`+`
+`+Bold+`  allowed ips: `+Reset+`%s`+`
+`+Bold+`  transfer: `+Reset+`%s received, %s sent`+`
+`+Bold+`  persistent keepalive: `+Reset+`every %d `+Cyan+`seconds`+Reset+`
 `,
 		p.PublicKey.String(),
-		// TODO(mdlayher): get right endpoint with getnameinfo.
 		p.Endpoint.String(),
-		ipsString(p.AllowedIPs),
-		p.LastHandshakeTime.String(),
-		p.ReceiveBytes,
-		p.TransmitBytes,
+		strings.ReplaceAll(ipsString(p.AllowedIPs), "/", Cyan+"/"+Reset),
+		formatBytes(p.ReceiveBytes),
+		formatBytes(p.TransmitBytes),
+		int(p.PersistentKeepaliveInterval.Seconds()),
 	)
 }
 

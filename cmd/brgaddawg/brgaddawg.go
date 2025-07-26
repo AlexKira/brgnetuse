@@ -1,24 +1,26 @@
 //go:build !windows
 
 /*
-The brgaddwg utility is designed to add WireGuard network interfaces.
+Package brgaddawg provides a utility to configure AmneziaWG network interfaces.
 
-Features:
-- Configures a WireGuard network interface.
-- Enables and disables logging. The level can be: Debug or Error.
-- Provides two types of logging: String or JSON.
-- Creates a log file, based on the interface name.
+Key Features:
+- Facilitates the creation and setup of AmneziaWG (obfuscated WireGuard) network interfaces.
+- Offers configurable logging with 'Debug' or 'Error' levels.
+- Supports both plain string and JSON log output formats.
+- Generates a dedicated log file per interface, named after the interface.
 
-This utility was developed based on:
-- https://github.com/WireGuard/wireguard-go/tree/master
+This utility leverages components derived from:
+- https://github.com/amnezia-vpn/amneziawg-go (AmneziaWG Go implementation)
 
 For detailed information on AmneziaWG, refer to:
-- https://www.wireguard.com
+- https://docs.amnezia.org/documentation/amnezia-wg
 */
 
 package main
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -29,11 +31,12 @@ import (
 
 	"github.com/AlexKira/brgnetuse/internal/help"
 	"github.com/AlexKira/brgnetuse/internal/middleware"
+	"github.com/AlexKira/brgnetuse/src/get"
+	"github.com/amnezia-vpn/amneziawg-go/conn"
+	"github.com/amnezia-vpn/amneziawg-go/device"
+	"github.com/amnezia-vpn/amneziawg-go/ipc"
+	"github.com/amnezia-vpn/amneziawg-go/tun"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/conn"
-	"golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/ipc"
-	"golang.zx2c4.com/wireguard/tun"
 )
 
 const Version = "0.0.20250522"
@@ -42,7 +45,7 @@ const Version = "0.0.20250522"
 func main() {
 
 	if len(os.Args) < 2 || os.Args[1] == help.HelpFlag {
-		help.BridgeAddHelp("brgaddwg ")
+		help.BridgeAddHelp("brgaddawg")
 		return
 	}
 
@@ -65,9 +68,9 @@ func main() {
 
 // Function parses command-line arguments into a WgDebive struct,
 // validating flags and their values, and returns errors for invalid input.
-func ParseArgs(args []string) (WgDebive, error) {
+func ParseArgs(args []string) (AwgDebive, error) {
 
-	var wg WgDebive
+	var awg AwgDebive
 	var loggingMap = map[string]int{
 		help.LogInfoFlag:  middleware.LogInfo,
 		help.LogErrorFlag: middleware.LogError,
@@ -79,13 +82,13 @@ func ParseArgs(args []string) (WgDebive, error) {
 		case help.WgInterfaceFlag:
 			indx++
 			if indx < len(os.Args) {
-				wg.InterfaceName = help.WgInterfaceNameValid(
+				awg.InterfaceName = help.WgInterfaceNameValid(
 					help.WgInterfaceFlag,
 					os.Args[indx],
 				)
 			} else {
-				wg.CurrentFlag = help.WgInterfaceFlag
-				return wg, fmt.Errorf(
+				awg.CurrentFlag = help.WgInterfaceFlag
+				return awg, fmt.Errorf(
 					"error: invalid argument passed, pass '%s', "+
 						"followed by a valid WireGuard interface name "+
 						"(e.g. '%s wg0', etc.)",
@@ -98,25 +101,25 @@ func ParseArgs(args []string) (WgDebive, error) {
 			if indx < len(os.Args) {
 				mtu, err := strconv.Atoi(os.Args[indx])
 				if err != nil {
-					return wg, fmt.Errorf(
+					return awg, fmt.Errorf(
 						"error: invalid MTU number format: '%s'",
 						os.Args[indx],
 					)
 				}
 
 				if mtu < 500 || mtu > 1500 {
-					wg.CurrentFlag = help.MTUFlag
-					return wg, fmt.Errorf(
+					awg.CurrentFlag = help.MTUFlag
+					return awg, fmt.Errorf(
 						"error: MTU value %d is out of valid range (500-1500)",
 						mtu,
 					)
 				}
 
-				wg.MTU = mtu
+				awg.MTU = mtu
 
 			} else {
-				wg.CurrentFlag = help.MTUFlag
-				return wg, errors.New(
+				awg.CurrentFlag = help.MTUFlag
+				return awg, errors.New(
 					"error: please provide a valid MTU value",
 				)
 			}
@@ -125,7 +128,7 @@ func ParseArgs(args []string) (WgDebive, error) {
 			if os.Args[indx] == help.PathLogDirFlag {
 				indx++
 				if indx < len(os.Args) {
-					wg.PathLogDir = help.PathLogDirValid(
+					awg.PathLogDir = help.PathLogDirValid(
 						help.PathLogDirFlag,
 						os.Args[indx],
 					)
@@ -134,50 +137,50 @@ func ParseArgs(args []string) (WgDebive, error) {
 					if indx < len(os.Args) {
 						isLogLevel := loggingMap[os.Args[indx]]
 						if isLogLevel == 0 {
-							wg.CurrentFlag = help.PathLogDirFlag
+							awg.CurrentFlag = help.PathLogDirFlag
 
-							return wg, errors.New(
+							return awg, errors.New(
 								"error: logging level not found")
 						}
 
-						wg.LoggerName = "brgaddwg"
-						wg.LogLevel = isLogLevel
+						awg.LoggerName = "brgaddwg"
+						awg.LogLevel = isLogLevel
 
 						indx++
 						if indx < len(os.Args) {
 							if os.Args[indx] == help.LogTypeFlag {
-								wg.LoggingJSON = true
+								awg.LoggingJSON = true
 							} else {
-								wg.CurrentFlag = help.LogTypeFlag
-								return wg, errors.New(
+								awg.CurrentFlag = help.LogTypeFlag
+								return awg, errors.New(
 									"error: logging type is missing",
 								)
 							}
 						}
 					}
 				} else {
-					wg.CurrentFlag = help.PathLogDirFlag
-					return wg, errors.New(
+					awg.CurrentFlag = help.PathLogDirFlag
+					return awg, errors.New(
 						"error: please provide the path to the log folder",
 					)
 				}
 			}
 		default:
-			wg.CurrentFlag = os.Args[indx]
-			return wg, errors.New(help.DefaultErrorMessage)
+			awg.CurrentFlag = os.Args[indx]
+			return awg, errors.New(help.DefaultErrorMessage)
 		}
 	}
 
-	return wg, nil
+	return awg, nil
 }
 
 // Function starts the WireGuard process with given arguments and configuration,
 // optionally redirecting output to a log file and managing background execution.
-func Execute(args []string, wg WgDebive) error {
+func Execute(args []string, awg AwgDebive) error {
 
 	// Checking a running background process.
 	if os.Getenv(help.Env_Field_Foreground) == "1" {
-		if err := wg.NewDevice(); err != nil {
+		if err := awg.NewDevice(); err != nil {
 			return err
 		}
 
@@ -189,17 +192,17 @@ func Execute(args []string, wg WgDebive) error {
 	env = append(
 		env,
 		fmt.Sprintf("%s=1", help.Env_Field_Foreground),
-		fmt.Sprintf("%s=%s", help.Env_Field_Type, help.Env_Wg_Type),
-		fmt.Sprintf("%s=%s", help.Env_Field_Tag, wg.InterfaceName),
+		fmt.Sprintf("%s=%s", help.Env_Field_Type, help.Env_Awg_Type),
+		fmt.Sprintf("%s=%s", help.Env_Field_Tag, awg.InterfaceName),
 	)
 
 	newSliceArgs := args[1:]
 	cmd := exec.Command(args[0], newSliceArgs...)
 	cmd.Env = env
 
-	if wg.PathLogDir != "" {
+	if awg.PathLogDir != "" {
 		openFile, err := os.OpenFile(
-			fmt.Sprintf("%s/%s.log", wg.PathLogDir, wg.InterfaceName),
+			fmt.Sprintf("%s/%s.log", awg.PathLogDir, awg.InterfaceName),
 			os.O_CREATE|os.O_WRONLY|os.O_APPEND,
 			0666,
 		)
@@ -224,9 +227,9 @@ func Execute(args []string, wg WgDebive) error {
 	return nil
 }
 
-// WgDebive represents the WireGuard-Go device's configuration and operational parameters.
+// AwgDebive represents the AmneziaWG device's configuration and operational parameters.
 // It includes interface details, logging settings, and argument parsing context.
-type WgDebive struct {
+type AwgDebive struct {
 	InterfaceName string // WireGuard interface name.
 	LoggerName    string // Logger name.
 	LogLevel      int    // Logging level (0-NULL, 1-ERROR, 2-DEBUG).
@@ -237,16 +240,16 @@ type WgDebive struct {
 	CurrentFlag string
 }
 
-// NewDevice sets up and starts a new WireGuard-Go interface.
+// Method sets up and starts a new AmneziaWG interface.
 // It initializes the logger, TUN device, UAPI socket,
 // and manages the device lifecycle.
-func (p *WgDebive) NewDevice() error {
+func (p *AwgDebive) NewDevice() error {
 
 	var logger *device.Logger
 
 	// Configure logger: choose between JSON (via middleware) or plain text.
-	// No type conversion is needed here, as middleware returns the original
-	// WireGuard device.Logger type.
+	// Note: Type conversion `(*device.Logger)` is needed for middleware's output
+	// as it returns an original WireGuard logger type.
 	if p.LoggingJSON {
 		logging := middleware.LoggingStruct{
 			LogLevel:   p.LogLevel,
@@ -254,7 +257,7 @@ func (p *WgDebive) NewDevice() error {
 			Pid:        os.Getpid(),
 			MainThread: syscall.Gettid(),
 		}
-		logger = logging.WgJsonLoggerMiddleware(p.InterfaceName)
+		logger = (*device.Logger)(logging.WgJsonLoggerMiddleware(p.InterfaceName))
 	} else {
 		logger = device.NewLogger(
 			p.LogLevel,
@@ -298,6 +301,20 @@ func (p *WgDebive) NewDevice() error {
 		conn.NewStdNetBind(),
 		logger,
 	)
+
+	pk, err := get.GenerateKeys()
+	if err != nil {
+		return err
+	}
+
+	decodedBytes, err := base64.StdEncoding.DecodeString(pk["private"].String())
+	if err != nil {
+		return fmt.Errorf("error: decoding Base64: %v", err)
+	}
+
+	private_key := fmt.Sprintf("private_key=%s", hex.EncodeToString(decodedBytes))
+	device.IpcSet(private_key)
+	device.Up()
 
 	errs := make(chan error)
 	term := make(chan os.Signal, 1)

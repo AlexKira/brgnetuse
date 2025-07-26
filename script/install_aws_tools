@@ -1,0 +1,9 @@
+#!/bin/bash
+
+mkdir /opt/pkg_awg
+
+cd /opt/pkg_awg
+
+git clone https://github.com/amnezia-vpn/amneziawg-tools.git
+
+cd /opt/pkg_awg/amneziawg-tools/src && make && make install 

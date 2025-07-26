@@ -197,12 +197,27 @@ func (p *UpdateInterfaceCommand) ParseArgs(args []string) (string, error) {
 // Method to execute a command for updating the interface.
 func (p *UpdateInterfaceCommand) Execute() error {
 
+	typeAwg, err := help.CheckProcessTagExists(p.Iface, help.Env_Awg_Type)
+	if err != nil {
+		return err
+	}
+
 	switch p.FlagCmd {
 	case help.PortFlag:
-		err := set.UpdatePort(p.Iface, p.Value)
-		if err != nil {
-			return err
+
+		if typeAwg {
+			cmd := shell.FormatCmdAwgUpdatePort(p.Iface, p.Value)
+			if err := shell.ShellCommand(cmd, ShellStd); err != nil {
+				return err
+			}
+
+		} else {
+			err := set.UpdatePort(p.Iface, p.Value)
+			if err != nil {
+				return err
+			}
 		}
+
 	case help.PrivateKeyFlag:
 
 		errMsg := "error: invalid public key length (base64)"
@@ -210,15 +225,33 @@ func (p *UpdateInterfaceCommand) Execute() error {
 			return errors.New(errMsg)
 		}
 
-		privKey := set.UpdatePrivateKeyStructure{
-			InterfaceName: p.Iface,
-			PrivateKey:    p.Value,
+		if typeAwg {
+
+			if p.Value == "" {
+				pk, err := get.GenerateKeys()
+				if err != nil {
+					return err
+				}
+				p.Value = pk["private"].String()
+			}
+
+			cmd := shell.FormatCmdAwgUpdatePrivateKey(p.Iface, p.Value)
+			if err := shell.ShellCommand(cmd, ShellStd); err != nil {
+				return err
+			}
+
+		} else {
+			privKey := set.UpdatePrivateKeyStructure{
+				InterfaceName: p.Iface,
+				PrivateKey:    p.Value,
+			}
+
+			err := set.UpdatePrivateKey(privKey)
+			if err != nil {
+				return err
+			}
 		}
 
-		err := set.UpdatePrivateKey(privKey)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -306,28 +339,53 @@ func (p *PeerCommand) ParseArgs(args []string) (string, error) {
 // to apply the changes to the WireGuard configuration.
 func (p *PeerCommand) Execute() error {
 
+	typeAwg, err := help.CheckProcessTagExists(p.Iface, help.Env_Awg_Type)
+	if err != nil {
+		return err
+	}
+
 	var obj set.SinglePeerStructure
 	switch p.FlagCmd {
 	case help.AddFlag:
 
-		obj.InterfaceName = p.Iface
-		obj.PublicKey = p.Publickey
-		obj.AllowedIPs = p.AllowIps
-		obj.PersistentKeepaliveInterval = p.KeepAlive
-		obj.EndpointHost = p.EndPointHost
+		if typeAwg {
+			cmd := shell.FormatCmdAwgAddPeer(
+				p.Iface, p.Publickey,
+				strings.Join(p.AllowIps, ", "),
+				p.KeepAlive, p.EndPointHost)
+			if err := shell.ShellCommand(cmd, ShellStd); err != nil {
+				return err
+			}
 
-		err := obj.AddPeer(false)
-		if err != nil {
-			return err
+		} else {
+			obj.InterfaceName = p.Iface
+			obj.PublicKey = p.Publickey
+			obj.AllowedIPs = strings.Split(strings.Join(p.AllowIps, ","), ",")
+			obj.PersistentKeepaliveInterval = p.KeepAlive
+			obj.EndpointHost = p.EndPointHost
+			err := obj.AddPeer(false)
+			if err != nil {
+				return err
+			}
 		}
+
 	case help.DelFlag:
 
-		obj.InterfaceName = p.Iface
-		obj.PublicKey = p.Publickey
+		if typeAwg {
+			cmd := shell.FormatCmdAwgDeletePeer(p.Iface, p.Publickey)
+			if err := shell.ShellCommand(cmd, ShellStd); err != nil {
+				return err
+			}
 
-		if err := obj.RemovePeer(); err != nil {
-			return err
+		} else {
+			obj.InterfaceName = p.Iface
+			obj.PublicKey = p.Publickey
+
+			if err := obj.RemovePeer(); err != nil {
+				return err
+			}
 		}
+
 	}
 	return nil
 }

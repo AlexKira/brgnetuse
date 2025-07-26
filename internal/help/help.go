@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/AlexKira/brgnetuse/internal/handlers"
@@ -13,6 +14,13 @@ import (
 )
 
 const RegexSymbols = `!@#$%^&*()_+-=}{][|'~?`
+
+const Env_Field_Foreground = "WG_PROCESS_FOREGROUND"
+const Env_Field_Type = "ENV_PROTOCOL_TYPE"
+const Env_Field_Tag = "ENV_PROTOCOL_TAG"
+
+const Env_Awg_Type string = "awg"
+const Env_Wg_Type string = "wg"
 
 const ExitSetupFailed int = 1
 
@@ -49,15 +57,16 @@ const (
 	FirewallFlag   string = "-fr"
 )
 
-// Function for outputting information to the console when using the utility: `brgaddwg` .
-func BridgeAddWgHelp() {
+// Function prints a formatted help message to the console for the utility.
+// It dynamically inserts the utility's name into the help text and examples.
+func BridgeAddHelp(utility string) {
 	fmt.Fprintln(os.Stderr, "┌────────────────────────────────────────────────────────────────────┐")
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
-	fmt.Fprintln(os.Stderr, "│  Help using the utility: brgaddwg.                                 │")
+	fmt.Fprintf(os.Stderr, "│  Help using the utility: %s                                 │\n", utility)
 	fmt.Fprintln(os.Stderr, "|  ______________________________________________________________    |")
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "│    [-h]           Help.                                            │")
-	fmt.Fprintln(os.Stderr, "│    |_[-i][name]   Add Wireguard Network Interface Name.            │")
+	fmt.Fprintln(os.Stderr, "│    |_[-i][name]   Add a network interface name.                    │")
 	fmt.Fprintln(os.Stderr, "│    |_[-m][number] Add MTU size.                                    │")
 	fmt.Fprintln(os.Stderr, "│    |_[-l][path]   Add path to log file directory.                  │")
 	fmt.Fprintln(os.Stderr, "│        |_[-ld]    Logging level: Debug.                            │")
@@ -67,26 +76,32 @@ func BridgeAddWgHelp() {
 	fmt.Fprintln(os.Stderr, "│  Example:                                                          │")
 	fmt.Fprintln(os.Stderr, "|  ______________________________________________________________    |")
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
-	fmt.Fprintln(os.Stderr, "│   Add Wireguard Network Interface Name:                            │")
-	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0                                                │")
+	fmt.Fprintln(os.Stderr, "│   Add a network interface name:                                    │")
+	fmt.Fprintf(os.Stderr, "│     %s -i wg0                                               │\n", utility)
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "│   Add MTU size:                                                    │")
-	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0 -m 1340                                        │")
+	fmt.Fprintf(os.Stderr, "│    %s -i wg0 -m 1340                                        │\n", utility)
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "│   Add path to log file directory:                                  │")
-	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0 -l /var/log -ld                                │")
-	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0 -l /var/log -le -js                            │")
-	fmt.Fprintln(os.Stderr, "│     brgaddwg -i wg0 -m 1340 -l /var/log -ld -js                    │")
+	fmt.Fprintf(os.Stderr, "│     %s -i wg0 -l /var/log -ld                               │\n", utility)
+	fmt.Fprintf(os.Stderr, "│     %s -i wg0 -l /var/log -le -js                           │\n", utility)
+	fmt.Fprintf(os.Stderr, "│     %s -i wg0 -m 1340 -l /var/log -ld -js                   │\n", utility)
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "└────────────────────────────────────────────────────────────────────┘")
 }
 
-// Function for outputting information to the console when using the utility: `brgsetwg` .
+// Function prints a comprehensive help message to the console for the `brgsetwg` utility.
+// It details all available flags, their sub-commands, and provides numerous usage examples
+// for configuring WireGuard interfaces, managing peers, IP addresses, firewall rules,
+// and network forwarding. It also includes useful external commands for resetting firewall/NAT rules.
 func BridgeSetWgHelp() {
 	fmt.Fprintln(os.Stderr, "┌───────────────────────────────────────────────────────────────────────────────────────┐")
 	fmt.Fprintln(os.Stderr, "│                                                                                       │")
 	fmt.Fprintln(os.Stderr, "│  Help using the utility: brgsetwg.                                                    │")
 	fmt.Fprintln(os.Stderr, "|  ___________________________________________________________________________________  |")
+	fmt.Fprintln(os.Stderr, "│                                                                                       │")
+	fmt.Fprintln(os.Stderr, "│  NOTE: This utility acts as a wrapper for the following tools:                        │")
+	fmt.Fprintln(os.Stderr, "│        iptables, ip, and awg.                                                         │")
 	fmt.Fprintln(os.Stderr, "│                                                                                       │")
 	fmt.Fprintln(os.Stderr, "│    [-h]                          Help.                                                │")
 	fmt.Fprintln(os.Stderr, "│    |_[-i][name]                  Wireguard network interface name.                    │")
@@ -241,12 +256,18 @@ func BridgeSetWgHelp() {
 	fmt.Fprintln(os.Stderr, "└───────────────────────────────────────────────────────────────────────────────────────┘")
 }
 
-// Function for outputting information to the console when using the utility: `brggetwg` .
+// Function prints a help message to the console for the `brggetwg` utility.
+// It outlines flags for retrieving WireGuard interface settings (IPs, peers),
+// global network configurations (forwarding, firewall, NAT rules),
+// and provides an option to generate new WireGuard key pairs.
 func BridgeGetWgHelp() {
 	fmt.Fprintln(os.Stderr, "┌──────────────────────────────────────────────────────────────────────┐")
 	fmt.Fprintln(os.Stderr, "│                                                                      │")
 	fmt.Fprintln(os.Stderr, "│  Help using the utility: brggetwg.                                   │")
 	fmt.Fprintln(os.Stderr, "|  __________________________________________________________________  |")
+	fmt.Fprintln(os.Stderr, "│                                                                      │")
+	fmt.Fprintln(os.Stderr, "│  NOTE: This utility acts as a wrapper for the following tools:       │")
+	fmt.Fprintln(os.Stderr, "│        iptables, ip, and awg.                                        │")
 	fmt.Fprintln(os.Stderr, "│                                                                      │")
 	fmt.Fprintln(os.Stderr, "│    [-h]           Help.                                              │")
 	fmt.Fprintln(os.Stderr, "│    |_[-i][name]   Wireguard network interface name.                  │")
@@ -392,4 +413,41 @@ func IpAddressValid(flag, address string) (net.IP, *net.IPNet) {
 	}
 
 	return ip, ipnet
+}
+
+// Function scans all running processes to determine if any process
+// has a specific environment variable (tag) set to a given value.
+// It returns true if such a process is found, otherwise false.
+// An error is returned only if there's a problem reading the /proc directory.
+func CheckProcessTagExists(tag, wgType string) (bool, error) {
+
+	valueTag := fmt.Sprintf("%s=%s", Env_Field_Tag, tag)
+	valueType := fmt.Sprintf("%s=%s", Env_Field_Type, wgType)
+
+	dirs, err := os.ReadDir("/proc")
+	if err != nil {
+		return false, fmt.Errorf("error: could not read directory /proc: %w", err)
+	}
+
+	for _, subdir := range dirs {
+		pid, err := strconv.Atoi(subdir.Name())
+		if err != nil {
+			continue
+		}
+
+		fmtEnvPath := fmt.Sprintf("/proc/%d/environ", pid)
+		environContent, err := os.ReadFile(fmtEnvPath)
+		if err != nil {
+			continue
+		}
+
+		envStr := string(environContent)
+
+		if strings.Contains(envStr, valueTag) && strings.Contains(envStr, valueType) {
+			return true, nil
+		}
+
+	}
+
+	return false, nil
 }

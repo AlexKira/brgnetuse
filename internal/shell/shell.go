@@ -99,31 +99,22 @@ func GetNetInterfaceNameLinux() string {
 }
 
 // Function generate the `ip` command when deleting.
-func FormatCmdIpLinkDelete(
-	interfaceName string,
-) string {
-	return fmt.Sprintf("ip link delete %s", interfaceName)
+func FormatCmdIpLinkDelete(iface string) string {
+	return fmt.Sprintf("ip link delete %s", iface)
 }
 
 // Function generates the `ip` command to control the status of the network interface.
-func FormatCmdIpLinkSet(
-	interfaceName string,
-	flag IpFlagString,
-) string {
-	return fmt.Sprintf("ip link set %s %s", interfaceName, flag)
+func FormatCmdIpLinkSet(iface string, flag IpFlagString) string {
+	return fmt.Sprintf("ip link set %s %s", iface, flag)
 }
 
 // Function generates the `ip` command to add or remove an IP address.
-func FormatCmdIpAddrDev(
-	interfaceName string,
-	ip string,
-	flag IpFlagString,
-) string {
+func FormatCmdIpAddrDev(iface, ip string, flag IpFlagString) string {
 	return fmt.Sprintf(
 		"ip addr %s %s dev %s",
 		flag,
 		ip,
-		interfaceName,
+		iface,
 	)
 }
 
@@ -165,6 +156,47 @@ func FormatCmdIptablesNat(flag IpFlagString, osIface, subnet string) string {
 }
 
 // Function constructs the 'ip link show' command for a given interface.
-func FormatCmdIpShowJSON(interfaceName string) string {
-	return fmt.Sprintf("ip -j addr show %s", interfaceName)
+func FormatCmdIpShowJSON(iface string) string {
+	return fmt.Sprintf("ip -j addr show %s", iface)
+}
+
+// Function creates the 'awg show <interface>' command string.
+// This command is used to display the configuration and status of a specific WireGuard interface.
+func FormatCmdAwgShow(iface string) string {
+	return fmt.Sprintf("awg show %s", iface)
+}
+
+// Function creates the 'awg set <interface> listen-port <port>' command string.
+// This command is used to update the listening port of a specific WireGuard interface.
+func FormatCmdAwgUpdatePort(iface, port string) string {
+	return fmt.Sprintf("awg set %s listen-port %s", iface, port)
+}
+
+// Function creates the 'awg set <interface> private-key <(echo '<privateKey>')' command string.
+// This command is used to set the private key for a specific WireGuard interface using a secure shell redirection.
+func FormatCmdAwgUpdatePrivateKey(iface, pk string) string {
+	return fmt.Sprintf("awg set %s private-key <(echo '%s')", iface, pk)
+}
+
+// Function creates the 'awg set <interface> peer <publicKey> allowed-ips <allowedIPs> [persistent-keepalive <keepalive>] [endpoint <endpoint>]' command string.
+// This command is used to add a new peer to a specified WireGuard interface,
+// optionally including persistent keepalive and endpoint settings.
+func FormatCmdAwgAddPeer(iface, pk, aips, kp, epoint string) string {
+	cmd := fmt.Sprintf(
+		"awg set %s peer '%s' allowed-ips %s ",
+		iface, pk, aips,
+	)
+	if kp != "" {
+		cmd += fmt.Sprintf("persistent-keepalive %s ", kp)
+	}
+
+	if epoint != "" {
+		cmd += fmt.Sprintf("endpoint %s ", epoint)
+	}
+
+	return cmd
+}
+
+func FormatCmdAwgDeletePeer(iface, pk string) string {
+	return fmt.Sprintf("awg set %s peer '%s' remove", iface, pk)
 }

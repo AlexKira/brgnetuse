@@ -2,14 +2,21 @@
 
 WORKDIRD="/opt/brgnetuse"
 SUBDIR_BIN="/usr/local/bin"
-BRG_ADD_NAME="brgaddwg"
+BRG_ADD_WG_NAME="brgaddwg"
+BRG_ADD_AWG_NAME="brgaddawg"
 BRG_SET_NAME="brgsetwg"
 BRG_GET_NAME="brggetwg"
 
-if [ -f $SUBDIR_BIN/$BRG_ADD_NAME ];
+if [ -f $SUBDIR_BIN/$BRG_ADD_WG_NAME ];
 then
-    rm -R $SUBDIR_BIN/$BRG_ADD_NAME
+    rm -R $SUBDIR_BIN/$BRG_ADD_WG_NAME
 fi
+
+if [ -f $SUBDIR_BIN/$BRG_ADD_AWG_NAME ];
+then
+    rm -R $SUBDIR_BIN/$BRG_ADD_AWG_NAME
+fi
+
 
 if [ -f $SUBDIR_BIN/$BRG_SET_NAME ];
 then
@@ -21,9 +28,13 @@ then
     rm -R $SUBDIR_BIN/$BRG_GET_NAME
 fi
 
-cd $WORKDIRD/cmd/$BRG_ADD_NAME
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_ADD_NAME *.go
-mv $BRG_ADD_NAME $SUBDIR_BIN
+cd $WORKDIRD/cmd/$BRG_ADD_WG_NAME
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_ADD_WG_NAME *.go
+mv $BRG_ADD_WG_NAME $SUBDIR_BIN
+
+cd $WORKDIRD/cmd/$BRG_ADD_AWG_NAME
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_ADD_AWG_NAME *.go
+mv $BRG_ADD_AWG_NAME $SUBDIR_BIN
 
 cd $WORKDIRD/cmd/$BRG_SET_NAME
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o $BRG_SET_NAME *.go

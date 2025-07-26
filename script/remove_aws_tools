@@ -1,0 +1,23 @@
+#!/bin/bash
+
+systemctl stop awg-quick@.service
+systemctl disable awg-quick@.service
+
+rm /usr/lib/systemd/system/awg-quick.target
+rm /usr/lib/systemd/system/awg-quick@.service
+
+systemctl daemon-reload
+
+rm /usr/bin/awg
+rm /usr/bin/awg-quick
+
+rm /usr/share/man/man8/awg.8
+rm /usr/share/man/man8/awg-quick.8
+
+rm /usr/share/bash-completion/completions/awg
+rm /usr/share/bash-completion/completions/awg-quick
+
+rm -R /etc/amnezia
+rm -R /opt/pkg_awg
+
+apt autoremove
