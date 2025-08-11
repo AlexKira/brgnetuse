@@ -143,7 +143,7 @@ func ParseArgs(args []string) (AwgDebive, error) {
 								"error: logging level not found")
 						}
 
-						awg.LoggerName = "brgaddwg"
+						awg.LoggerName = "brgaddawg"
 						awg.LogLevel = isLogLevel
 
 						indx++
