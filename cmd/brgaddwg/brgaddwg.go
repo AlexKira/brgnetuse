@@ -46,6 +46,11 @@ func main() {
 		return
 	}
 
+	if os.Args[1] == help.VersionFlag {
+		fmt.Printf("v.%s\n", Version)
+		return
+	}
+
 	wg, err := ParseArgs(os.Args)
 	if err != nil {
 		help.ErrorExitMessage(

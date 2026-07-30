@@ -39,13 +39,18 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const Version = "0.0.20250522"
+const Version = "0.03.20260730"
 
 // Main entry point.
 func main() {
 
 	if len(os.Args) < 2 || os.Args[1] == help.HelpFlag {
 		help.BridgeAddHelp("brgaddawg")
+		return
+	}
+
+	if os.Args[1] == help.VersionFlag {
+		fmt.Printf("v.%s\n", Version)
 		return
 	}
 

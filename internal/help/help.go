@@ -27,6 +27,7 @@ const ExitSetupFailed int = 1
 const (
 	// Default flag.
 	HelpFlag        string = "-h"
+	VersionFlag     string = "-v"
 	WgInterfaceFlag string = "-i"
 	AddFlag         string = "-a"
 	DelFlag         string = "-d"
@@ -66,6 +67,7 @@ func BridgeAddHelp(utility string) {
 	fmt.Fprintln(os.Stderr, "|  ______________________________________________________________    |")
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "│    [-h]           Help.                                            │")
+	fmt.Fprintln(os.Stderr, "│    [-v]           Version.                                         │")
 	fmt.Fprintln(os.Stderr, "│    |_[-i][name]   Add a network interface name.                    │")
 	fmt.Fprintln(os.Stderr, "│    |_[-m][number] Add MTU size.                                    │")
 	fmt.Fprintln(os.Stderr, "│    |_[-l][path]   Add path to log file directory.                  │")
