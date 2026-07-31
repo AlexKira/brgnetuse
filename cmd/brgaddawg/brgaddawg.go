@@ -10,7 +10,7 @@ Key Features:
 - Generates a dedicated log file per interface, named after the interface.
 
 This utility leverages components derived from:
-- https://github.com/amnezia-vpn/amneziawg-go (AmneziaWG Go implementation)
+- https://github.com/amnezia-vpn/amneziawg-go (AmneziaWG Go implementation v.0.0.20250522)
 
 For detailed information on AmneziaWG, refer to:
 - https://docs.amnezia.org/documentation/amnezia-wg
