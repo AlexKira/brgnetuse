@@ -193,9 +193,9 @@ func (dp *deviceParser) Parse(key, value string) {
 	case "max_handshake_attempts":
 		dp.d.MaxHandshakeAttempts = dp.parseUintRange(value)
 	case "random_trailers":
-		dp.d.RandomTrailers = value == "true"
+		dp.d.RandomTrailers = value == "1" || value == "true"
 	case "disable_cookies":
-		dp.d.DisableCookies = value == "true"
+		dp.d.DisableCookies = value == "1" || value == "true"
 	}
 }
 
