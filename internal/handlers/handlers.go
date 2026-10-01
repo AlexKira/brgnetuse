@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.zx2c4.com/wireguard/wgctrl"
+	wgctrl "github.com/awg-go/awgctrl-go"
 )
 
 // Function for initializing the wgctrl client.

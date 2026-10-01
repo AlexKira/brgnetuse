@@ -2,6 +2,9 @@ import sys
 import subprocess
 
 
+LOCAL_NETWORK_INTERFACE: str = "wlp2s0" ## "enp0s3"
+
+
 def run_command(cmd: str, std: bool = False) -> None:
     stdout = subprocess.DEVNULL
     if std:
@@ -29,7 +32,8 @@ def main() -> None:
         "brgaddawg -i awg0 -l /var/log -le",
         "brgaddawg -i awg1 -l /var/log -ld",
         "brgaddawg -i awg2 -l /var/log -le -js",
-        "brgaddawg -i awg3 -m 1240 -l /var/log -ld -js"
+        "brgaddawg -i awg3 -m 1240 -l /var/log -ld -js",
+        """brgaddawg -i awg4 -m 1240 -l /var/log -ld -js '{"jc":5,"jmin":10,"jmax":100,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4","header_protection_key":"aM4nrr/9JB0/0icSIxrCJnyZ8Ct0LSVpXEVBw1CUhH8=","content_padding_addition":"10","rekey_after_time":"30","rekey_timeout":"50","reject_after_time":"70","keepalive_timeout":"90","max_handshake_attempts":"2","random_trailers":true,"disable_cookies":true}'"""
     ]
 
     setList: list = [
@@ -80,20 +84,20 @@ def main() -> None:
         # NAT.
         "brgsetwg -i wg0 -ip 10.10.10.0/24 -a -n",
         "brgsetwg -i wg0 -ip 10.10.10.0/24 -d -n",
-        "brgsetwg -i wg0 -ip 10.10.10.0/24 -a -n enp0s3",
-        "brgsetwg -i wg0 -ip 10.10.10.0/24 -d -n enp0s3",
+        f"brgsetwg -i wg0 -ip 10.10.10.0/24 -a -n {LOCAL_NETWORK_INTERFACE}",
+        f"brgsetwg -i wg0 -ip 10.10.10.0/24 -d -n {LOCAL_NETWORK_INTERFACE}",
 
         "brgsetwg -i awg0 -ip 10.10.10.0/24 -a -n",
         "brgsetwg -i awg0 -ip 10.10.10.0/24 -d -n",
-        "brgsetwg -i awg0 -ip 10.10.10.0/24 -a -n enp0s3",
-        "brgsetwg -i awg0 -ip 10.10.10.0/24 -d -n enp0s3",
+        f"brgsetwg -i awg0 -ip 10.10.10.0/24 -a -n {LOCAL_NETWORK_INTERFACE}",
+        f"brgsetwg -i awg0 -ip 10.10.10.0/24 -d -n {LOCAL_NETWORK_INTERFACE}",
 
         # Firewall.
         "brgsetwg -i wg0 -ip 10.10.10.0/24 -d -fr",
-        "brgsetwg -i wg0 -ip 10.10.10.0/24 -d -fr enp0s3",
+        f"brgsetwg -i wg0 -ip 10.10.10.0/24 -d -fr {LOCAL_NETWORK_INTERFACE}",
 
         "brgsetwg -i awg0 -ip 10.10.10.0/24 -d -fr",
-        "brgsetwg -i awg0 -ip 10.10.10.0/24 -d -fr enp0s3",
+        f"brgsetwg -i awg0 -ip 10.10.10.0/24 -d -fr {LOCAL_NETWORK_INTERFACE}",
 
         # Forwarding: IPv4
         "brgsetwg -fw4 -a",
@@ -117,6 +121,7 @@ def main() -> None:
         "brgsetwg -i awg1 -d",
         "brgsetwg -i awg2 -d",
         "brgsetwg -i awg3 -d",
+        "brgsetwg -i awg4 -d",
 
     ]
 

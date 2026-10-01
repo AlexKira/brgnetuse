@@ -1,6 +1,7 @@
 package get
 
 import (
+	"context"
 	"fmt"
 	"testing"
 )
@@ -510,6 +511,9 @@ func TestGetIPvForwarding(t *testing.T) {
 
 // Testing the GetPeer function.
 func TestGetPeer(t *testing.T) {
+
+	ctx := context.Background()
+
 	type testCase struct {
 		input     string
 		wantError bool
@@ -517,8 +521,9 @@ func TestGetPeer(t *testing.T) {
 
 	tests := []testCase{
 		{input: "lo", wantError: true},
-		{input: "wg0", wantError: true},
+		{input: "awg0", wantError: true},
 		{input: "qwerty", wantError: true},
+		{input: "wg0", wantError: true},
 	}
 
 	for _, tc := range tests {
@@ -526,7 +531,7 @@ func TestGetPeer(t *testing.T) {
 			t.Log("--------------------------------------")
 			t.Logf("Run test: interface=%q", tc.input)
 
-			devices, err := GetPeer(tc.input)
+			devices, err := GetPeer(ctx, tc.input)
 			if tc.wantError {
 				t.Logf("info: expected error received: %v", err)
 			} else {

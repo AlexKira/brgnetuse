@@ -1,16 +1,17 @@
 // Package provides a set of ready-made functions for working with
-// the Wireguard network.
+// the Wireguard/AmneziaWG network.
 
 package set
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
 	"time"
 
 	"github.com/AlexKira/brgnetuse/internal/handlers"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"github.com/awg-go/awgctrl-go/wgtypes"
 )
 
 // Method generates and sets a new private key for the specified
@@ -33,11 +34,11 @@ import (
 //	    PrivateKey:    "", // or a base64 encoded private key
 //	}
 //
-//	err := set.UpdatePrivateKey(args)
+//	err := set.UpdatePrivateKey(context.Background(), args)
 //	if err != nil {
 //	    // Handle error
 //	}
-func UpdatePrivateKey(args UpdatePrivateKeyStructure) error {
+func UpdatePrivateKey(ctx context.Context, args UpdatePrivateKeyStructure) error {
 
 	if args.InterfaceName == "" {
 		return fmt.Errorf("error: failed to get Wireguard network interface name")
@@ -74,7 +75,7 @@ func UpdatePrivateKey(args UpdatePrivateKeyStructure) error {
 	config := wgtypes.Config{}
 	config.PrivateKey = &pvKey
 
-	err = newClient.ConfigureDevice(args.InterfaceName, config)
+	err = newClient.ConfigureDevice(ctx, args.InterfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
 			"error: failed to update network interface '%s': %v",
@@ -96,7 +97,7 @@ func UpdatePrivateKey(args UpdatePrivateKeyStructure) error {
 //
 //	nil if the port was successfully updated.
 //	an error if the port is invalid or the update failed
-func UpdatePort(interfaceName string, port string) error {
+func UpdatePort(ctx context.Context, interfaceName string, port string) error {
 
 	portInt, err := handlers.CheckPort(port)
 	if err != nil {
@@ -112,7 +113,7 @@ func UpdatePort(interfaceName string, port string) error {
 	}
 	defer newClient.Close()
 
-	err = newClient.ConfigureDevice(interfaceName, config)
+	err = newClient.ConfigureDevice(ctx, interfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
 			"error: failed to update network interface '%s': %v",
@@ -150,20 +151,20 @@ func UpdatePort(interfaceName string, port string) error {
 //
 // //Add a new peer without replacing existing ones.
 //
-//	err := cfg.AddPeer(false)
+//	err := cfg.AddPeer(context.Background(), false)
 //	if err != nil {
 //	    // Handle error
 //	}
 //
 // //Replace an existing peer with the same public key.
 //
-//	err = cfg.AddPeer(true)
+//	err = cfg.AddPeer(context.Background(), true)
 //	if err != nil {
 //	    // Handle error
 //	}
 //
 // ````
-func (p *SinglePeerStructure) AddPeer(replace bool) error {
+func (p *SinglePeerStructure) AddPeer(ctx context.Context, replace bool) error {
 	if p.InterfaceName == "" {
 		return fmt.Errorf("error: failed to get Wireguard network interface name")
 	}
@@ -238,7 +239,7 @@ func (p *SinglePeerStructure) AddPeer(replace bool) error {
 	}
 	defer newClient.Close()
 
-	err = newClient.ConfigureDevice(p.InterfaceName, config)
+	err = newClient.ConfigureDevice(ctx, p.InterfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
 			"error: failed to update network interface '%s': %v",
@@ -269,13 +270,13 @@ func (p *SinglePeerStructure) AddPeer(replace bool) error {
 //	    PublicKey:     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 //	}
 //
-//	err := cfg.RemovePeer()
+//	err := cfg.RemovePeer(context.Background())
 //	if err != nil {
 //	    // Handle the error
 //	}
 //
 // ````
-func (p *SinglePeerStructure) RemovePeer() error {
+func (p *SinglePeerStructure) RemovePeer(ctx context.Context) error {
 	if p.InterfaceName == "" {
 		return fmt.Errorf("error: failed to get Wireguard network interface name")
 	}
@@ -306,7 +307,7 @@ func (p *SinglePeerStructure) RemovePeer() error {
 	}
 	defer newClient.Close()
 
-	err = newClient.ConfigureDevice(p.InterfaceName, config)
+	err = newClient.ConfigureDevice(ctx, p.InterfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
 			"error: failed to update network interface '%s': %v",
@@ -371,20 +372,20 @@ func (p *SinglePeerStructure) RemovePeer() error {
 //
 // // Add new peers without replacing existing ones.
 //
-//	 err := cfg.AddPeer(false)
+//	 err := obj.AddPeer(context.Background(), false)
 //	 if err != nil {
 //		// Handle error
 //	 }
 //
 // // Replace existing peers with new ones.
 //
-//	err = cfg.AddPeer(true)
+//	err = cfg.AddPeer(context.Background(), true)
 //	if err != nil {
 //	    // Handle error
 //	}
 //
 // ```
-func (p *MultiPeerStructure) AddPeer(replace bool) error {
+func (p *MultiPeerStructure) AddPeer(ctx context.Context, replace bool) error {
 	// Check interface name.
 	if p.InterfaceName == "" {
 		return fmt.Errorf("error: failed to get Wireguard network interface name")
@@ -462,7 +463,7 @@ func (p *MultiPeerStructure) AddPeer(replace bool) error {
 		ReplacePeers: replace,
 		Peers:        peerConfig,
 	}
-	err = newClient.ConfigureDevice(p.InterfaceName, config)
+	err = newClient.ConfigureDevice(ctx, p.InterfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
 			"error: failed to update network interface '%s': %v",
@@ -491,14 +492,14 @@ func (p *MultiPeerStructure) AddPeer(replace bool) error {
 //		},
 //	}
 //
-// err := cfg.RemovePeer()
+// err := cfg.RemovePeer(context.Background())
 //
 //	if err != nil {
 //		// Handle error
 //	}
 //
 // ```
-func (p *MultiPeerStructure) RemovePeer() error {
+func (p *MultiPeerStructure) RemovePeer(ctx context.Context) error {
 	// Check interface name.
 	if p.InterfaceName == "" {
 		return fmt.Errorf("error: failed to get Wireguard network interface name")
@@ -535,7 +536,7 @@ func (p *MultiPeerStructure) RemovePeer() error {
 	defer newClient.Close()
 
 	config := wgtypes.Config{Peers: peerConfig}
-	err = newClient.ConfigureDevice(p.InterfaceName, config)
+	err = newClient.ConfigureDevice(ctx, p.InterfaceName, config)
 	if err != nil {
 		return fmt.Errorf(
 			"error: failed to update network interface '%s': %v",

@@ -1,8 +1,12 @@
-// Package provides functions for retrieving information about the state of WireGuard nodes,
-// NAT, and Firewall network interfaces.
+/*
+Package provides functions for retrieving information about
+the state of WireGuard/AmneziaWG nodes, NAT, and Firewall network interfaces.
+*/
+
 package get
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -11,7 +15,7 @@ import (
 
 	"github.com/AlexKira/brgnetuse/internal/handlers"
 	"github.com/AlexKira/brgnetuse/internal/shell"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"github.com/awg-go/awgctrl-go/wgtypes"
 )
 
 // Function parses the raw string output of the 'iptables -L -v -n'
@@ -410,7 +414,7 @@ func GetIPvForwarding() (map[string]int, error) {
 //	        // Additional processing
 //	    }
 //	}
-func GetPeer(interfaceName string) ([]*wgtypes.Device, error) {
+func GetPeer(ctx context.Context, interfaceName string) ([]*wgtypes.Device, error) {
 	newClient, err := handlers.InitWgCtlClient()
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to open wgctrl, %v", err)
@@ -420,15 +424,22 @@ func GetPeer(interfaceName string) ([]*wgtypes.Device, error) {
 	var devices []*wgtypes.Device
 
 	if interfaceName != "" {
-		device, err := newClient.Device(interfaceName)
+		device, err := newClient.Device(ctx, interfaceName)
 		if err != nil {
-			return nil, fmt.Errorf("error: failed to get device %q, %v", interfaceName, err)
+			return nil, fmt.Errorf(
+				"error: failed to get device %q, %v",
+				interfaceName,
+				err,
+			)
 		}
 		devices = append(devices, device)
 	} else {
-		devices, err = newClient.Devices()
+		devices, err = newClient.Devices(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("error: failed to get devices, %v", err)
+			return nil, fmt.Errorf(
+				"error: failed to get devices, %v",
+				err,
+			)
 		}
 	}
 

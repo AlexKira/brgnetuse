@@ -13,6 +13,7 @@ Capabilities:
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -20,9 +21,8 @@ import (
 	"strings"
 
 	"github.com/AlexKira/brgnetuse/internal/help"
-	"github.com/AlexKira/brgnetuse/internal/shell"
 	"github.com/AlexKira/brgnetuse/src/get"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"github.com/awg-go/awgctrl-go/wgtypes"
 )
 
 const (
@@ -33,10 +33,17 @@ const (
 	Cyan   = "\x1b[36m"
 )
 
+const Version = "3.01.202610001"
+
 // Main entry point.
 func main() {
 	if len(os.Args) < 2 || os.Args[1] == help.HelpFlag {
 		help.BridgeGetWgHelp()
+		return
+	}
+
+	if os.Args[1] == help.VersionFlag {
+		fmt.Printf("v.%s\n", Version)
 		return
 	}
 
@@ -49,6 +56,7 @@ func main() {
 			help.ErrorExitMessage(currentFlag, err.Error())
 			os.Exit(help.ExitSetupFailed)
 		}
+
 	case 1:
 		currentFlag, err := SingleCommand(os.Args[1])
 		if err != nil {
@@ -96,26 +104,15 @@ func GetInterfaceCommnd(args []string) (string, error) {
 
 	switch args[2] {
 	case help.PeerFlag:
-		typeCmd, err := help.CheckProcessTagExists(iFaceName, help.Env_Awg_Type)
-		if err != nil {
+		if err := printWgInterface(context.Background(), iFaceName); err != nil {
 			return help.PeerFlag, err
 		}
 
-		if typeCmd {
-			cmd := shell.FormatCmdAwgShow(iFaceName)
-			if err := shell.ShellCommand(cmd, ShellStd); err != nil {
-				return help.PeerFlag, err
-			}
-
-		} else {
-			if err := printWgInterface(iFaceName); err != nil {
-				return help.PeerFlag, err
-			}
-		}
 	case help.IpAddressFlag:
 		if err := printIP(iFaceName); err != nil {
 			return help.IpAddressFlag, err
 		}
+
 	default:
 		return help.WgInterfaceFlag, errors.New(help.DefaultErrorMessage)
 	}
@@ -136,13 +133,7 @@ func SingleCommand(flag string) (string, error) {
 			return help.IpAddressFlag, err
 		}
 	case help.PeerFlag:
-
-		if err := shell.ShellCommand(
-			shell.FormatCmdAwgShow(""), ShellStd); err != nil {
-			return help.PeerFlag, err
-		}
-
-		if err := printWgInterface(""); err != nil {
+		if err := printWgInterface(context.Background(), ""); err != nil {
 			return help.PeerFlag, err
 		}
 
@@ -170,6 +161,12 @@ func SingleCommand(flag string) (string, error) {
 		}
 
 		printWgKey(resultMap)
+
+	case help.AwgBaseTemplateFlag:
+		printAwgBasicConfigTemplate()
+
+	case help.AwgFullTemplateFlag:
+		printAwgFullConfigTemplate()
 
 	default:
 		return flag, errors.New(help.DefaultErrorMessage)
@@ -256,16 +253,22 @@ addr_info:
 }
 
 // Function to display WireGuard network interface information.
-func printWgInterface(name string) error {
+func printWgInterface(ctx context.Context, name string) error {
 
-	devices, err := get.GetPeer(name)
+	devices, err := get.GetPeer(ctx, name)
 
 	if err != nil {
 		return err
 	}
 
 	for _, d_val := range devices {
-		printDevice(d_val)
+
+		if d_val.IsAmnezia {
+			printAwgDevice(d_val)
+		} else {
+			printWgDevice(d_val)
+		}
+
 		for _, p_val := range d_val.Peers {
 			printPeer(p_val)
 		}
@@ -275,10 +278,9 @@ func printWgInterface(name string) error {
 }
 
 // Function to parse WireGuard device information.
-func printDevice(d *wgtypes.Device) {
+func printWgDevice(d *wgtypes.Device) {
 
-	interfaceFormat := `
-` + Green + Bold + `interface: ` + Reset + Green + `%s ` + Reset + `
+	interfaceFormat := `` + Green + Bold + `interface: ` + Reset + Green + `%s ` + Reset + `
 ` + Bold + `  public key: ` + Reset + `%s` + ` 
 ` + Bold + `  private key: ` + Reset + `(hidden)` + `
 ` + Bold + `  listening port: ` + Reset + `%d` + `
@@ -289,6 +291,135 @@ func printDevice(d *wgtypes.Device) {
 		d.PublicKey.String(),
 		d.ListenPort,
 	)
+}
+
+// Function to parse AmneziaWG device information.
+func printAwgDevice(d *wgtypes.Device) {
+
+	interfaceFormat := Green + Bold + `interface: ` + Reset + Green + `%s ` + Reset + `
+` + Bold + `  public key: ` + Reset + `%s` + `
+` + Bold + `  private key: ` + Reset + `(hidden)` + `
+` + Bold + `  listening port: ` + Reset + `%d` + `
+`
+
+	fmt.Printf(
+		interfaceFormat,
+		d.Name,
+		d.PublicKey.String(),
+		d.ListenPort,
+	)
+
+	if d.Jc != 0 {
+		fmt.Printf(Bold+"  Jc: "+Reset+"%v\n", d.Jc)
+	}
+	if d.Jmin != 0 {
+		fmt.Printf(Bold+"  Jmin: "+Reset+"%v\n", d.Jmin)
+	}
+	if d.Jmax != 0 {
+		fmt.Printf(Bold+"  Jmax: "+Reset+"%v\n", d.Jmax)
+	}
+
+	if d.S1 != 0 {
+		fmt.Printf(Bold+"  S1: "+Reset+"%v\n", d.S1)
+	}
+	if d.S2 != 0 {
+		fmt.Printf(Bold+"  S2: "+Reset+"%v\n", d.S2)
+	}
+	if d.S3 != 0 {
+		fmt.Printf(Bold+"  S3: "+Reset+"%v\n", d.S3)
+	}
+	if d.S4 != 0 {
+		fmt.Printf(Bold+"  S4: "+Reset+"%v\n", d.S4)
+	}
+
+	if d.H1 != "" {
+		fmt.Printf(Bold+"  H1: "+Reset+"%v\n", d.H1)
+	}
+
+	if d.H2 != "" {
+		fmt.Printf(Bold+"  H2: "+Reset+"%v\n", d.H2)
+	}
+
+	if d.H3 != "" {
+		fmt.Printf(Bold+"  H3: "+Reset+"%v\n", d.H3)
+	}
+
+	if d.H4 != "" {
+		fmt.Printf(Bold+"  H4: "+Reset+"%v\n", d.H4)
+	}
+
+	if d.HeaderProtectionKey != (wgtypes.Key{}) {
+		fmt.Printf(Bold+"  Header Protection Key: "+Reset+"%v\n", d.HeaderProtectionKey)
+	}
+
+	if !d.ContentPaddingAddition.IsZero() {
+		fmt.Printf(Bold+"  Content Padding Addition: "+Reset+"%v\n", d.ContentPaddingAddition)
+	}
+	if !d.RekeyAfterTime.IsZero() {
+		fmt.Printf(Bold+"  Rekey After Time: "+Reset+"%v\n", d.RekeyAfterTime)
+	}
+	if !d.RekeyTimeout.IsZero() {
+		fmt.Printf(Bold+"  Rekey Timeout: "+Reset+"%v\n", d.RekeyTimeout)
+	}
+	if !d.RejectAfterTime.IsZero() {
+		fmt.Printf(Bold+"  Reject After Time: "+Reset+"%v\n", d.RejectAfterTime)
+	}
+	if !d.KeepaliveTimeout.IsZero() {
+		fmt.Printf(Bold+"  Keepalive Timeout: "+Reset+"%v\n", d.KeepaliveTimeout)
+	}
+	if !d.MaxHandshakeAttempts.IsZero() {
+		fmt.Printf(Bold+"  Max Handshake Attempts: "+Reset+"%v\n", d.MaxHandshakeAttempts)
+	}
+
+	if d.RandomTrailers {
+		fmt.Printf(Bold + "  Random Trailers: " + Reset + "true\n")
+	}
+	if d.DisableCookies {
+		fmt.Printf(Bold + "  Disable Cookies: " + Reset + "true\n")
+	}
+
+	if d.I1 != "" {
+		fmt.Printf(Bold+"  I1: "+Reset+"%s\n", d.I1)
+	}
+	if d.I2 != "" {
+		fmt.Printf(Bold+"  I2: "+Reset+"%s\n", d.I2)
+	}
+	if d.I3 != "" {
+		fmt.Printf(Bold+"  I3: "+Reset+"%s\n", d.I3)
+	}
+	if d.I4 != "" {
+		fmt.Printf(Bold+"  I4: "+Reset+"%s\n", d.I4)
+	}
+	if d.I5 != "" {
+		fmt.Printf(Bold+"  I5: "+Reset+"%s\n", d.I5)
+	}
+}
+
+// Function to print the complete AmneziaWG configuration template.
+func printAwgFullConfigTemplate() {
+	header_protection_key, _ := get.GenerateKeys()
+
+	fmt.Printf(
+		`{"jc":5,"jmin":20,"jmax":100,`+
+			`"s1":12,"s2":13,"s3":14,"s4":15,`+
+			`"h1":"1","h2":"2","h3":"3","h4":"4",`+
+			`"i1":"","i2":"","i3":"","i4":"","i5":"",`+
+			`"header_protection_key":"%s",`+
+			`"content_padding_addition":"0-0",`+
+			`"rekey_after_time":"0-0",`+
+			`"rekey_timeout":"0-0",`+
+			`"reject_after_time":"0-0",`+
+			`"keepalive_timeout":"0-0",`+
+			`"max_handshake_attempts":"0-0",`+
+			`"random_trailers":false,"disable_cookies":false}
+`, header_protection_key["private"].String())
+}
+
+// Function to print the basic AmneziaWG configuration template.
+func printAwgBasicConfigTemplate() {
+	fmt.Println(`{"jc":0,"jmin":0,"jmax":0,` +
+		`"s1":12,"s2":13,"s3":14,"s4":15,` +
+		`"h1":"1","h2":"2","h3":"3","h4":"4"}`)
 }
 
 // Function formats byte counts into human-readable strings (B, KiB, MiB, GiB)
@@ -331,6 +462,7 @@ func printPeer(p wgtypes.Peer) {
 `+Bold+`  allowed ips: `+Reset+`%s`+`
 `+Bold+`  transfer: `+Reset+`%s received, %s sent`+`
 `+Bold+`  persistent keepalive: `+Reset+`every %d `+Cyan+`seconds`+Reset+`
+
 `,
 		p.PublicKey.String(),
 		p.Endpoint.String(),

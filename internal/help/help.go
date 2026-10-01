@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/AlexKira/brgnetuse/internal/handlers"
@@ -16,11 +15,7 @@ import (
 const RegexSymbols = `!@#$%^&*()_+-=}{][|'~?`
 
 const Env_Field_Foreground = "WG_PROCESS_FOREGROUND"
-const Env_Field_Type = "ENV_PROTOCOL_TYPE"
 const Env_Field_Tag = "ENV_PROTOCOL_TAG"
-
-const Env_Awg_Type string = "awg"
-const Env_Wg_Type string = "wg"
 
 const ExitSetupFailed int = 1
 
@@ -54,13 +49,20 @@ const (
 	EndPointHostFlag       string = "-eh"
 
 	// Utility brggetwg.
-	ForwardingFlag string = "-fw"
-	FirewallFlag   string = "-fr"
+	ForwardingFlag      string = "-fw"
+	FirewallFlag        string = "-fr"
+	AwgBaseTemplateFlag string = "-tb"
+	AwgFullTemplateFlag string = "-tf"
 )
 
 // Function prints a formatted help message to the console for the utility.
 // It dynamically inserts the utility's name into the help text and examples.
-func BridgeAddHelp(utility string) {
+func BridgeAddHelp(utility string, iface string, isAwg bool) {
+	var pipeSymbol string = " "
+	if isAwg {
+		pipeSymbol = "|"
+	}
+
 	fmt.Fprintln(os.Stderr, "┌────────────────────────────────────────────────────────────────────┐")
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintf(os.Stderr, "│  Help using the utility: %s                                 │\n", utility)
@@ -71,24 +73,38 @@ func BridgeAddHelp(utility string) {
 	fmt.Fprintln(os.Stderr, "│    |_[-i][name]   Add a network interface name.                    │")
 	fmt.Fprintln(os.Stderr, "│    |_[-m][number] Add MTU size.                                    │")
 	fmt.Fprintln(os.Stderr, "│    |_[-l][path]   Add path to log file directory.                  │")
-	fmt.Fprintln(os.Stderr, "│        |_[-ld]    Logging level: Debug.                            │")
-	fmt.Fprintln(os.Stderr, "│        |_[-le]    Logging level: Error.                            │")
-	fmt.Fprintln(os.Stderr, "│        |_[-js]    Logging type JSON. Defailt: String.              │")
+	fmt.Fprintf(os.Stderr, "│    %s  |_[-ld]    Logging level: Debug.                             │\n", pipeSymbol)
+	fmt.Fprintf(os.Stderr, "│    %s  |_[-le]    Logging level: Error.                             │\n", pipeSymbol)
+	fmt.Fprintf(os.Stderr, "│    %s  |_[-js]    Logging type JSON. Defailt: String.               │\n", pipeSymbol)
+	fmt.Fprintf(os.Stderr, "│    %s                                                               │\n", pipeSymbol)
+
+	if isAwg {
+		fmt.Fprintln(os.Stderr, "│    |_'{\"jc\":0,\"jmin\":0,...}' -> AmneziaWG JSON Parameters.         │")
+	}
+
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "│  Example:                                                          │")
 	fmt.Fprintln(os.Stderr, "|  ______________________________________________________________    |")
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "│   Add a network interface name:                                    │")
-	fmt.Fprintf(os.Stderr, "│     %s -i wg0                                               │\n", utility)
+	fmt.Fprintf(os.Stderr, "│    %s -i %s                                              │\n", utility, iface)
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "│   Add MTU size:                                                    │")
-	fmt.Fprintf(os.Stderr, "│    %s -i wg0 -m 1340                                        │\n", utility)
+	fmt.Fprintf(os.Stderr, "│    %s -i %s -m 1340                                      │\n", utility, iface)
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
 	fmt.Fprintln(os.Stderr, "│   Add path to log file directory:                                  │")
-	fmt.Fprintf(os.Stderr, "│     %s -i wg0 -l /var/log -ld                               │\n", utility)
-	fmt.Fprintf(os.Stderr, "│     %s -i wg0 -l /var/log -le -js                           │\n", utility)
-	fmt.Fprintf(os.Stderr, "│     %s -i wg0 -m 1340 -l /var/log -ld -js                   │\n", utility)
+	fmt.Fprintf(os.Stderr, "│    %s -i %s -l /var/log -ld                              │\n", utility, iface)
+	fmt.Fprintf(os.Stderr, "│    %s -i %s -l /var/log -le -js                          │\n", utility, iface)
+	fmt.Fprintf(os.Stderr, "│    %s -i %s -m 1340 -l /var/log -ld -js                  │\n", utility, iface)
 	fmt.Fprintln(os.Stderr, "│                                                                    │")
+
+	if isAwg {
+		fmt.Fprintln(os.Stderr, "│   AmneziaWG JSON Parameters:                                       │")
+		fmt.Fprintf(os.Stderr, "│    %s -i %s -l /var/log -ld '{\"jc\":0,\"jmin\":0,...}'      │\n", utility, iface)
+		fmt.Fprintf(os.Stderr, "│    %s -i %s -m 1340 -l /var/log -le -js '{\"jc\":0,...}'   │\n", utility, iface)
+		fmt.Fprintln(os.Stderr, "│                                                                    │")
+	}
+
 	fmt.Fprintln(os.Stderr, "└────────────────────────────────────────────────────────────────────┘")
 }
 
@@ -106,6 +122,7 @@ func BridgeSetWgHelp() {
 	fmt.Fprintln(os.Stderr, "│        iptables, ip, and awg.                                                         │")
 	fmt.Fprintln(os.Stderr, "│                                                                                       │")
 	fmt.Fprintln(os.Stderr, "│    [-h]                          Help.                                                │")
+	fmt.Fprintln(os.Stderr, "│    [-v]                          Version.                                             │")
 	fmt.Fprintln(os.Stderr, "│    |_[-i][name]                  Wireguard network interface name.                    │")
 	fmt.Fprintln(os.Stderr, "│    |   |_[-d]                    Remove Wireguard Network Interface.                  │")
 	fmt.Fprintln(os.Stderr, "│    |   |_[-up]                   Enable network interface.                            │")
@@ -263,55 +280,64 @@ func BridgeSetWgHelp() {
 // global network configurations (forwarding, firewall, NAT rules),
 // and provides an option to generate new WireGuard key pairs.
 func BridgeGetWgHelp() {
-	fmt.Fprintln(os.Stderr, "┌──────────────────────────────────────────────────────────────────────┐")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│  Help using the utility: brggetwg.                                   │")
-	fmt.Fprintln(os.Stderr, "|  __________________________________________________________________  |")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│  NOTE: This utility acts as a wrapper for the following tools:       │")
-	fmt.Fprintln(os.Stderr, "│        iptables, ip, and awg.                                        │")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│    [-h]           Help.                                              │")
-	fmt.Fprintln(os.Stderr, "│    |_[-i][name]   Wireguard network interface name.                  │")
-	fmt.Fprintln(os.Stderr, "│    |   |_[-ip]    Get IP settings for a network interface.           │")
-	fmt.Fprintln(os.Stderr, "│    |   |_[-pr]    Get peer settings for a network interface.         │")
-	fmt.Fprintln(os.Stderr, "│    |                                                                 │")
-	fmt.Fprintln(os.Stderr, "│    |_[-ip]        Get all IP settings for all network interfaces.    │")
-	fmt.Fprintln(os.Stderr, "│    |_[-pr]        Get all peer settings for all network interfaces.  │")
-	fmt.Fprintln(os.Stderr, "│    [_[-fw]        Get IPv4 and IPv6 forwarding settings.             │")
-	fmt.Fprintln(os.Stderr, "│    |_[-fr]        Get all firewall rules.                            │")
-	fmt.Fprintln(os.Stderr, "│    |_[-n]         Get all NAT rules.                                 │")
-	fmt.Fprintln(os.Stderr, "│    |                                                                 │")
-	fmt.Fprintln(os.Stderr, "│    |_[-pk]        Generate Public and Private Keys (Base64 encoded). │")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│  Example:                                                            │")
-	fmt.Fprintln(os.Stderr, "|  __________________________________________________________________  |")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│   Wireguard network interface name:                                  │")
-	fmt.Fprintln(os.Stderr, "│     brggetwg -i wg0 -ip                                              │")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│   Get peer settings for a network interface:                         │")
-	fmt.Fprintln(os.Stderr, "│     brggetwg -i wg0 -pr                                              │")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│   Get all IP settings for all network interfaces:                    │")
-	fmt.Fprintln(os.Stderr, "│     brggetwg -ip                                                     │")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│   Get all peer settings for all network interfaces:                  │")
-	fmt.Fprintln(os.Stderr, "│     brggetwg -pr                                                     │")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│   Get IPv4 and IPv6 forwarding settings:                             │")
-	fmt.Fprintln(os.Stderr, "│     brggetwg -fw                                                     │")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│   Get all firewall rules:                                            │")
-	fmt.Fprintln(os.Stderr, "│     brggetwg -fr                                                     │")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│   Get all NAT rules:                                                 │")
-	fmt.Fprintln(os.Stderr, "│     brggetwg -n                                                      │")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "│   Generate Public and Private Keys (Base64 encoded):                 │")
-	fmt.Fprintln(os.Stderr, "│     brggetwg -pk                                                     │")
-	fmt.Fprintln(os.Stderr, "│                                                                      │")
-	fmt.Fprintln(os.Stderr, "└──────────────────────────────────────────────────────────────────────┘")
+	fmt.Fprintln(os.Stderr, "┌────────────────────────────────────────────────────────────────────────┐")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│  Help using the utility: brggetwg.                                     │")
+	fmt.Fprintln(os.Stderr, "|  ____________________________________________________________________  |")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│  NOTE: This utility acts as a wrapper for the following tools:         │")
+	fmt.Fprintln(os.Stderr, "│        iptables, ip, and awg.                                          │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│    [-h]           Help.                                                │")
+	fmt.Fprintln(os.Stderr, "│    [-v]           Version.                                             │")
+	fmt.Fprintln(os.Stderr, "│    |_[-i][name]   Wireguard network interface name.                    │")
+	fmt.Fprintln(os.Stderr, "│    |   |_[-ip]    Get IP settings for a network interface.             │")
+	fmt.Fprintln(os.Stderr, "│    |   |_[-pr]    Get peer settings for a network interface.           │")
+	fmt.Fprintln(os.Stderr, "│    |                                                                   │")
+	fmt.Fprintln(os.Stderr, "│    |_[-ip]        Get all IP settings for all network interfaces.      │")
+	fmt.Fprintln(os.Stderr, "│    |_[-pr]        Get all peer settings for all network interfaces.    │")
+	fmt.Fprintln(os.Stderr, "│    [_[-fw]        Get IPv4 and IPv6 forwarding settings.               │")
+	fmt.Fprintln(os.Stderr, "│    |_[-fr]        Get all firewall rules.                              │")
+	fmt.Fprintln(os.Stderr, "│    |_[-n]         Get all NAT rules.                                   │")
+	fmt.Fprintln(os.Stderr, "│    |                                                                   │")
+	fmt.Fprintln(os.Stderr, "│    |_[-pk]        Generate Public and Private Keys (Base64 encoded).   │")
+	fmt.Fprintln(os.Stderr, "│    |_[-tb]        Get the basic JSON obfuscation template of AmneziaWG.│")
+	fmt.Fprintln(os.Stderr, "│    |_[-tf]        Get the full AmneziaWG JSON obfuscation template.    |")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│  Example:                                                              │")
+	fmt.Fprintln(os.Stderr, "|  ____________________________________________________________________  |")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│   Wireguard network interface name:                                    │")
+	fmt.Fprintln(os.Stderr, "│     brggetwg -i wg0 -ip                                                │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│   Get peer settings for a network interface:                           │")
+	fmt.Fprintln(os.Stderr, "│     brggetwg -i wg0 -pr                                                │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│   Get all IP settings for all network interfaces:                      │")
+	fmt.Fprintln(os.Stderr, "│     brggetwg -ip                                                       │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│   Get all peer settings for all network interfaces:                    │")
+	fmt.Fprintln(os.Stderr, "│     brggetwg -pr                                                       │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│   Get IPv4 and IPv6 forwarding settings:                               │")
+	fmt.Fprintln(os.Stderr, "│     brggetwg -fw                                                       │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│   Get all firewall rules:                                              │")
+	fmt.Fprintln(os.Stderr, "│     brggetwg -fr                                                       │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│   Get all NAT rules:                                                   │")
+	fmt.Fprintln(os.Stderr, "│     brggetwg -n                                                        │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│   Generate Public and Private Keys (Base64 encoded):                   │")
+	fmt.Fprintln(os.Stderr, "│     brggetwg -pk                                                       │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│   Get the basic JSON obfuscation template of AmneziaWG:                │")
+	fmt.Fprintln(os.Stderr, "│     brggetwg -tb                                                       │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "│   Get the full AmneziaWG JSON obfuscation template:                    │")
+	fmt.Fprintln(os.Stderr, "│     brggetwg -tf                                                       │")
+	fmt.Fprintln(os.Stderr, "│                                                                        │")
+	fmt.Fprintln(os.Stderr, "└────────────────────────────────────────────────────────────────────────┘")
 }
 
 // DefaultErrorMessage provides a standard message for
@@ -415,41 +441,4 @@ func IpAddressValid(flag, address string) (net.IP, *net.IPNet) {
 	}
 
 	return ip, ipnet
-}
-
-// Function scans all running processes to determine if any process
-// has a specific environment variable (tag) set to a given value.
-// It returns true if such a process is found, otherwise false.
-// An error is returned only if there's a problem reading the /proc directory.
-func CheckProcessTagExists(tag, wgType string) (bool, error) {
-
-	valueTag := fmt.Sprintf("%s=%s", Env_Field_Tag, tag)
-	valueType := fmt.Sprintf("%s=%s", Env_Field_Type, wgType)
-
-	dirs, err := os.ReadDir("/proc")
-	if err != nil {
-		return false, fmt.Errorf("error: could not read directory /proc: %w", err)
-	}
-
-	for _, subdir := range dirs {
-		pid, err := strconv.Atoi(subdir.Name())
-		if err != nil {
-			continue
-		}
-
-		fmtEnvPath := fmt.Sprintf("/proc/%d/environ", pid)
-		environContent, err := os.ReadFile(fmtEnvPath)
-		if err != nil {
-			continue
-		}
-
-		envStr := string(environContent)
-
-		if strings.Contains(envStr, valueTag) && strings.Contains(envStr, valueType) {
-			return true, nil
-		}
-
-	}
-
-	return false, nil
 }

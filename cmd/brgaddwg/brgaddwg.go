@@ -36,13 +36,14 @@ import (
 	"golang.zx2c4.com/wireguard/tun"
 )
 
-const Version = "0.0.20250522"
+const Version = "3.01.202610001"
+const UtilityName = " brgaddwg"
 
 // Main entry point.
 func main() {
 
 	if len(os.Args) < 2 || os.Args[1] == help.HelpFlag {
-		help.BridgeAddHelp("brgaddwg ")
+		help.BridgeAddHelp(UtilityName, "wg100", false)
 		return
 	}
 
@@ -145,7 +146,7 @@ func ParseArgs(args []string) (WgDebive, error) {
 								"error: logging level not found")
 						}
 
-						wg.LoggerName = "brgaddwg"
+						wg.LoggerName = UtilityName
 						wg.LogLevel = isLogLevel
 
 						indx++
@@ -194,7 +195,6 @@ func Execute(args []string, wg WgDebive) error {
 	env = append(
 		env,
 		fmt.Sprintf("%s=1", help.Env_Field_Foreground),
-		fmt.Sprintf("%s=%s", help.Env_Field_Type, help.Env_Wg_Type),
 		fmt.Sprintf("%s=%s", help.Env_Field_Tag, wg.InterfaceName),
 	)
 
