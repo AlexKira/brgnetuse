@@ -395,6 +395,7 @@ func GetIPvForwarding() (map[string]int, error) {
 }
 
 // Function retrieves WireGuard device information.
+//
 // If interfaceName is specified, it returns information for that specific interface.
 // Otherwise, it returns information for all WireGuard devices.
 //
@@ -402,7 +403,7 @@ func GetIPvForwarding() (map[string]int, error) {
 //
 // Usage example:
 //
-//	devices, err := GetPeer()
+//	devices, err := GetDevices(ctx, "")
 //	if err != nil {
 //	    // Handle error
 //	}
@@ -414,7 +415,7 @@ func GetIPvForwarding() (map[string]int, error) {
 //	        // Additional processing
 //	    }
 //	}
-func GetPeer(ctx context.Context, interfaceName string) ([]*wgtypes.Device, error) {
+func GetDevices(ctx context.Context, interfaceName string) ([]*wgtypes.Device, error) {
 	newClient, err := handlers.InitWgCtlClient()
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to open wgctrl, %v", err)

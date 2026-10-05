@@ -255,7 +255,7 @@ addr_info:
 // Function to display WireGuard network interface information.
 func printWgInterface(ctx context.Context, name string) error {
 
-	devices, err := get.GetPeer(ctx, name)
+	devices, err := get.GetDevices(ctx, name)
 
 	if err != nil {
 		return err

@@ -531,7 +531,7 @@ func TestGetPeer(t *testing.T) {
 			t.Log("--------------------------------------")
 			t.Logf("Run test: interface=%q", tc.input)
 
-			devices, err := GetPeer(ctx, tc.input)
+			devices, err := GetDevices(ctx, tc.input)
 			if tc.wantError {
 				t.Logf("info: expected error received: %v", err)
 			} else {
