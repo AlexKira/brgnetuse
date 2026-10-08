@@ -439,7 +439,7 @@ func validateAwgJSON(raw string) (string, error) {
 		return "", fmt.Errorf("error: invalid AmneziaWG JSON: %v", err)
 	}
 
-	if params.S1 < 12 || params.S2 < 12 || params.S3 < 12 || params.S4 < 12 {
+	if params.S1 < 12 || params.S2 < 12 || params.S3 != 0 && params.S3 < 12 || params.S4 != 0 && params.S4 < 12 {
 		return "", errors.New("error: s1-s4 must be greater than or equal to 12")
 	}
 
