@@ -6,17 +6,33 @@ LOCAL_NETWORK_INTERFACE: str = "wlp2s0" ## "enp0s3"
 
 
 def run_command(cmd: str, std: bool = False) -> None:
-    stdout = subprocess.DEVNULL
-    if std:
-        stdout = None
+    expect_fail = cmd.startswith("!")
+    if expect_fail:
+        cmd = cmd[1:]
 
-    reply = subprocess.run(
-        cmd, shell=True, stdout=stdout,
-    )
-    if reply.returncode == 0:
-        print(f"ok: {cmd}")
+    if expect_fail:
+        # Capture stdout+stderr to show the utility's own error text.
+        reply = subprocess.run(
+            cmd, shell=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        )
+    else:
+        reply = subprocess.run(
+            cmd, shell=True,
+            stdout=None if std else subprocess.DEVNULL,
+        )
+
+    failed = reply.returncode != 0
+
+    if failed == expect_fail:
+        print(f"ok{' (expected error)' if expect_fail else ''}: {cmd}")
+        if expect_fail and reply.stdout:
+            for line in reply.stdout.strip().splitlines():
+                print(f"    -> {line}")
     else:
         print(f"error: {cmd}")
+        if expect_fail and reply.stdout:
+            print(f"    -> {reply.stdout.strip()}")
 
 
 def main() -> None:
@@ -33,7 +49,36 @@ def main() -> None:
         "brgaddawg -i awg1 -l /var/log -ld",
         "brgaddawg -i awg2 -l /var/log -le -js",
         "brgaddawg -i awg3 -m 1240 -l /var/log -ld -js",
-        """brgaddawg -i awg4 -m 1240 -l /var/log -ld -js '{"jc":5,"jmin":10,"jmax":100,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4","header_protection_key":"aM4nrr/9JB0/0icSIxrCJnyZ8Ct0LSVpXEVBw1CUhH8=","content_padding_addition":"10","rekey_after_time":"30","rekey_timeout":"50","reject_after_time":"70","keepalive_timeout":"90","max_handshake_attempts":"2","random_trailers":true,"disable_cookies":true}'"""
+    
+        # Valid.
+        """brgaddawg -i awg4 -m 1240 -l /var/log -ld -js '{"jc":5,"jmin":10,"jmax":100,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4","header_protection_key":"aM4nrr/9JB0/0icSIxrCJnyZ8Ct0LSVpXEVBw1CUhH8=","content_padding_addition":"10","rekey_after_time":"30","rekey_timeout":"50","reject_after_time":"70","keepalive_timeout":"90","max_handshake_attempts":"2","random_trailers":true,"disable_cookies":true}'""",
+        """brgaddawg -i awg5 -m 1240 -l /var/log -ld -js '{"jc":5,"jmin":20,"jmax":100,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4","i1":"","i2":"","i3":"","i4":"","i5":"","header_protection_key":"OLs36XhtA7JsVp2TsZZbaxFFeKlma65P7f8I5aBXCng=","content_padding_addition":"0-0","rekey_after_time":"0-0","rekey_timeout":"0-0","reject_after_time":"0-0","keepalive_timeout":"0-0","max_handshake_attempts":"0-0","random_trailers":false,"disable_cookies":false}'""",
+        """brgaddawg -i awg6 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4"}'""",
+
+        "",
+        # Invalid (should fail, interface is not created):
+        # Wrong types.
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":"12","s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":12,"s2":13,"s3":14,"s4":15,"h1":1,"h2":"2","h3":"3","h4":"4"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4","random_trailers":"true"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":12.5,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":-1,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":70000,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4"}'""",
+
+        # Wrong values.
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":5,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":12,"s2":13,"s3":14,"h1":"1","h2":"2","h3":"3","h4":"4"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":5,"jmin":0,"jmax":100,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":5,"jmin":200,"jmax":100,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4","header_protection_key":"not_base64!!"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0,"jmax":0,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4","header_protection_key":"aGVsbG8="}'""",
+
+        # Broken structure.
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmim":0,"jmax":0,"s1":12,"s2":13,"s3":14,"s4":15,"h1":"1","h2":"2","h3":"3","h4":"4"}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":}'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{"jc":0,"jmin":0'""",
+        """!brgaddawg -i awg9 -m 1240 -l /var/log -ld -js '{}'""",
+
     ]
 
     setList: list = [
@@ -122,6 +167,8 @@ def main() -> None:
         "brgsetwg -i awg2 -d",
         "brgsetwg -i awg3 -d",
         "brgsetwg -i awg4 -d",
+        "brgsetwg -i awg5 -d",
+        "brgsetwg -i awg6 -d",
 
     ]
 

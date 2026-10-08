@@ -46,7 +46,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const Version = "3.01.20261001"
+const Version = "3.01.20261008"
 const UtilityName = "brgaddawg"
 
 var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -70,6 +70,12 @@ func main() {
 			awg.CurrentFlag,
 			err.Error(),
 		)
+
+		os.Exit(help.ExitSetupFailed)
+	}
+
+	if awg.AwgParams, err = validateAwgJSON(awg.AwgParams); err != nil {
+		help.ErrorExitMessage("", err.Error())
 
 		os.Exit(help.ExitSetupFailed)
 	}
@@ -167,13 +173,12 @@ func ParseArgs(args []string) (AwgDebive, error) {
 							if os.Args[indx] == help.LogTypeFlag {
 								awg.LoggingJSON = true
 
-							} else if json.Valid([]byte(os.Args[indx])) {
-								awg.AwgJSON = os.Args[indx]
+							} else if strings.HasPrefix(strings.TrimSpace(os.Args[indx]), "{") {
+								awg.AwgParams = os.Args[indx]
+
 							} else {
 								awg.CurrentFlag = help.LogTypeFlag
-								return awg, errors.New(
-									"error: logging type is missing",
-								)
+								return awg, errors.New("error: logging type is missing")
 							}
 						}
 					}
@@ -186,8 +191,8 @@ func ParseArgs(args []string) (AwgDebive, error) {
 			}
 		default:
 
-			if indx == len(os.Args[indx])-1 || json.Valid([]byte(os.Args[indx])) {
-				awg.AwgJSON = os.Args[indx]
+			if strings.HasPrefix(strings.TrimSpace(os.Args[indx]), "{") {
+				awg.AwgParams = os.Args[indx]
 				continue
 			}
 
@@ -260,7 +265,7 @@ type AwgDebive struct {
 	LoggingJSON   bool   // Flag indicating whether to use JSON format for logging.
 	MTU           int
 
-	AwgJSON string
+	AwgParams string
 
 	PathLogDir  string
 	CurrentFlag string
@@ -272,11 +277,6 @@ type AwgDebive struct {
 func (p *AwgDebive) NewDevice() error {
 
 	var logger *device.Logger
-
-	uApiConfig, err := fmtUApiConfig(p.AwgJSON)
-	if err != nil {
-		return err
-	}
 
 	// Configure logger: choose between JSON (via middleware) or plain text.
 	// Note: Type conversion `(*device.Logger)` is needed for middleware's output
@@ -333,7 +333,10 @@ func (p *AwgDebive) NewDevice() error {
 		logger,
 	)
 
-	device.IpcSet(uApiConfig)
+	if err := device.IpcSet(p.AwgParams); err != nil {
+		return fmt.Errorf("failed to apply AmneziaWG config: %v", err)
+	}
+
 	device.Up()
 
 	errs := make(chan error)
@@ -403,13 +406,66 @@ func hexDecodedBase64(key, field string) (string, error) {
 	return hex.EncodeToString(decodedBytes), nil
 }
 
-// Function formats AmneziaWG JSON configuration into UAPI-compatible parameters.
-func fmtUApiConfig(jsonConfig string) (string, error) {
+// Validates the user's AmneziaWG JSON and returns a ready UAPI string.
+// Empty input generates random values.
+func validateAwgJSON(raw string) (string, error) {
+
+	if raw == "" {
+		return fmtUApiConfig(nil), nil
+	}
+
 	var params get.AwgObfuscateStructure
 
-	if jsonConfig == "" {
+	dec := json.NewDecoder(strings.NewReader(raw))
+	dec.DisallowUnknownFields()
 
-		params = get.AwgObfuscateStructure{
+	if err := dec.Decode(&params); err != nil {
+		var typeErr *json.UnmarshalTypeError
+		if errors.As(err, &typeErr) {
+			expected := typeErr.Type.String()
+			switch typeErr.Type.Kind() {
+			case reflect.Uint16:
+				expected = "number 0-65535 without quotes"
+			case reflect.String:
+				expected = "string in quotes"
+			case reflect.Bool:
+				expected = "true or false"
+			}
+			return "", fmt.Errorf(
+				"error: field '%s': got %s, expected %s",
+				typeErr.Field, typeErr.Value, expected,
+			)
+		}
+		return "", fmt.Errorf("error: invalid AmneziaWG JSON: %v", err)
+	}
+
+	if params.S1 < 12 || params.S2 < 12 || params.S3 < 12 || params.S4 < 12 {
+		return "", errors.New("error: s1-s4 must be greater than or equal to 12")
+	}
+
+	if params.Jc > 0 && (params.Jmin == 0 || params.Jmin > params.Jmax) {
+		return "", errors.New("error: when jc > 0, jmin must be > 0 and <= jmax")
+	}
+
+	if params.HeaderProtectionKey != "" {
+		hexKey, err := hexDecodedBase64(params.HeaderProtectionKey, "header_protection_key")
+		if err != nil {
+			return "", err
+		}
+
+		params.HeaderProtectionKey = hexKey
+	}
+
+	return fmtUApiConfig(&params), nil
+}
+
+// Function formats the AmneziaWG structure into UAPI-compatible "key=value\n" lines.
+// Fields with zero values are skipped. If params is nil, random obfuscation
+// values are generated.
+func fmtUApiConfig(params *get.AwgObfuscateStructure) string {
+
+	if params == nil {
+		params = &get.AwgObfuscateStructure{
 			Jc:   randNum(uint16(5), uint16(20)),
 			Jmin: randNum(uint16(20), uint16(100)),
 			Jmax: randNum(uint16(100), uint16(200)),
@@ -424,55 +480,22 @@ func fmtUApiConfig(jsonConfig string) (string, error) {
 			H3: fmt.Sprintf("%d", randNum(uint32(350000000), uint32(400000000))),
 			H4: fmt.Sprintf("%d", randNum(uint32(450000000), uint32(500000000))),
 		}
-
-	} else {
-		if err := json.Unmarshal([]byte(jsonConfig), &params); err != nil {
-			return "", fmt.Errorf(
-				"error: invalid AmneziaWG JSON: %v",
-				err,
-			)
-		}
-
-		if params.HeaderProtectionKey != "" {
-			if params.S1 < 12 ||
-				params.S2 < 12 ||
-				params.S3 < 12 ||
-				params.S4 < 12 {
-				return "", fmt.Errorf(
-					"error: S1-S4 must be greater than or equal to 12",
-				)
-			}
-
-			hexHeaderProtectionKey, err := hexDecodedBase64(
-				params.HeaderProtectionKey,
-				"header_protection_key",
-			)
-
-			if err != nil {
-				return "", err
-			}
-
-			params.HeaderProtectionKey = hexHeaderProtectionKey
-		}
-
 	}
 
 	var b strings.Builder
 
-	v := reflect.ValueOf(params)
-	t := reflect.TypeOf(params)
+	v := reflect.ValueOf(*params)
+	t := reflect.TypeOf(*params)
 
 	for i := 0; i < v.NumField(); i++ {
-		name := t.Field(i).Tag.Get("json")
 		value := v.Field(i)
 
 		if value.IsZero() {
 			continue
 		}
 
-		fmt.Fprintf(&b, "%s=%v\n", name, value.Interface())
+		fmt.Fprintf(&b, "%s=%v\n", t.Field(i).Tag.Get("json"), value.Interface())
 	}
 
-	return b.String(), nil
-
+	return b.String()
 }
