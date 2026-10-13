@@ -33,5 +33,5 @@ const (
 
 	// Command: iptables.
 	IptablesFirewall string = "iptables -L -v -n"
-	IptablesNat      string = "iptables -t nat -L -v"
+	IptablesNat      string = "iptables -t nat -L -n -v"
 )

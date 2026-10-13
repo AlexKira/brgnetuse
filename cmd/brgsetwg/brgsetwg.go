@@ -27,7 +27,7 @@ import (
 	"github.com/AlexKira/brgnetuse/src/set"
 )
 
-const Version = "3.01.202610001"
+const Version = "3.01.20261014"
 
 // Main entry point.
 func main() {

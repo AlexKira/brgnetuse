@@ -311,25 +311,33 @@ func (p *FilterIptablesOutput) GetRuleId(id int) (IptablesOutput, error) {
 // interface matches (or is "any"), the output interface matches, and the source subnet
 // matches (or is "0.0.0.0/0") the given parameters.
 // Returns true if such a rule is found, false otherwise. Returns an error if the subnetCIDR is invalid.
-func (p *FilterIptablesOutput) GetExistingRules(inIface, outIface, subnetCIDR string) (bool, error) {
-
+func (p *FilterIptablesOutput) GetExistingRules(
+	inIface, outIface, subnetCIDR string,
+) (bool, error) {
 	_, _, err := net.ParseCIDR(subnetCIDR)
 	if err != nil {
-		return false, fmt.Errorf("error: invalid IP address format: %s", subnetCIDR)
+		return false, fmt.Errorf(
+			"error: invalid IP address format: %s",
+			subnetCIDR,
+		)
 	}
 
 	for _, chain := range p.Rule.Chains {
 		for _, existingRule := range chain.Rules {
+			inMatch := existingRule.In == inIface ||
+				existingRule.In == "any" ||
+				existingRule.In == "*"
 
-			inMatch := existingRule.In == inIface || existingRule.In == "any"
 			outMatch := existingRule.Out == outIface
-			subnetMatch := existingRule.Source == subnetCIDR || existingRule.Source == "0.0.0.0/0"
+
+			subnetMatch := existingRule.Source == subnetCIDR ||
+				existingRule.Source == "0.0.0.0/0" ||
+				existingRule.Source == "anywhere"
 
 			if inMatch && outMatch && subnetMatch {
 				return true, nil
 			}
 		}
-
 	}
 
 	return false, nil
