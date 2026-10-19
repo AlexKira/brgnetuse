@@ -36,7 +36,7 @@ import (
 	"golang.zx2c4.com/wireguard/tun"
 )
 
-const Version = "3.01.202610001"
+const Version = "3.01.20261014"
 const UtilityName = " brgaddwg"
 
 // Main entry point.

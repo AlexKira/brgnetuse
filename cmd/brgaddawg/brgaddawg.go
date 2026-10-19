@@ -46,7 +46,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const Version = "3.01.20261008"
+const Version = "3.01.20261014"
 const UtilityName = "brgaddawg"
 
 var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
