@@ -7,6 +7,7 @@ package get
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -453,4 +454,149 @@ func GetDevices(ctx context.Context, interfaceName string) ([]*wgtypes.Device, e
 	}
 
 	return devices, nil
+}
+
+// ValidateCPS validates the syntax and arguments of a CPS tag sequence.
+//
+// Supported tags:
+//   - <b hex_data>: static hexadecimal data prefixed with "0x".
+//   - <t>: Unix timestamp; may appear at most once in the sequence.
+//   - <r length>: cryptographically secure random bytes.
+//   - <rc length>: random ASCII letters (A-Z, a-z).
+//   - <rd length>: random decimal digits (0-9).
+//
+// The length arguments for <r>, <rc>, and <rd> must be integers
+// between 0 and 1000, inclusive. Each of these tags requires exactly
+// one argument, while <t> does not accept any arguments.
+//
+// The fieldName identifies the CPS field (for example, I1 or I2)
+// and is included in error messages. An empty value is considered valid.
+//
+// Note: <b> data must contain an even number of hexadecimal digits
+// because it represents complete bytes.
+func ValidateCPS(fieldName, value string) error {
+	if value == "" {
+		return nil
+	}
+
+	fail := func(format string, args ...any) error {
+		return fmt.Errorf(
+			"error: invalid CPS field %s: %s",
+			fieldName,
+			fmt.Sprintf(format, args...),
+		)
+	}
+
+	cpsField := strings.TrimSpace(value)
+	seenTimestamp := false
+
+	for pos := 0; pos < len(cpsField); {
+		// Each tag must begin with '<'.
+		if cpsField[pos] != '<' {
+			return fail("expected '<' at position %d", pos)
+		}
+
+		// Find the closing '>'.
+		relEnd := strings.IndexByte(cpsField[pos:], '>')
+		if relEnd == -1 {
+			return fail("missing closing '>' at position %d", pos)
+		}
+
+		end := pos + relEnd
+
+		// Extract the tag content without its angle brackets.
+		tagContent := cpsField[pos+1 : end]
+		parts := strings.Fields(tagContent)
+
+		if len(parts) == 0 {
+			return fail("empty tag at position %d", pos)
+		}
+
+		tagName := parts[0]
+		args := parts[1:]
+
+		switch tagName {
+		case "b":
+			if len(args) != 1 {
+				return fail("tag <b> requires exactly one argument")
+			}
+
+			hexData := args[0]
+
+			if !strings.HasPrefix(hexData, "0x") {
+				return fail("tag <b> value must start with '0x'")
+			}
+
+			if _, err := hex.DecodeString(hexData[2:]); err != nil {
+				return fail("tag <b> contains invalid hexadecimal data")
+			}
+
+		case "r", "rc", "rd":
+			if len(args) != 1 {
+				return fail("tag <%s> requires exactly one argument", tagName)
+			}
+
+			length, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fail("tag <%s> length must be an integer", tagName)
+			}
+
+			if length < 0 || length > 1000 {
+				return fail("tag <%s> length must be between 0 and 1000", tagName)
+			}
+
+		case "t":
+			if len(args) != 0 {
+				return fail("tag <t> must not have arguments")
+			}
+
+			if seenTimestamp {
+				return fail("tag <t> may appear only once")
+			}
+
+			seenTimestamp = true
+
+		default:
+			return fail("unknown tag %q", tagName)
+		}
+
+		// Continue with the next tag.
+		pos = end + 1
+	}
+
+	return nil
+}
+
+// ValidateNumericRange validates a numeric value or a pair of values
+// separated by a hyphen, such as "10" or "10-20".
+func ValidateNumericRange(fieldName, value string) error {
+	fail := func(format string, args ...any) error {
+		return fmt.Errorf(
+			"error: invalid field %s: %s",
+			fieldName,
+			fmt.Sprintf(format, args...),
+		)
+	}
+
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fail("value must not be empty")
+	}
+
+	parts := strings.Split(value, "-")
+	if len(parts) < 1 || len(parts) > 2 {
+		return fail("expected a number or two numbers separated by '-', got %q", value)
+	}
+
+	for _, part := range parts {
+		if part == "" {
+			return fail("missing number in %q", value)
+		}
+
+		if _, err := strconv.ParseUint(part, 10, 64); err != nil {
+			return fail("%q is not a valid non-negative integer", part)
+		}
+	}
+
+	return nil
 }

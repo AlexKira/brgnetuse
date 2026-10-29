@@ -46,7 +46,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const Version = "3.01.20261014"
+const Version = "3.01.20261029"
 const UtilityName = "brgaddawg"
 
 var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -454,6 +454,37 @@ func validateAwgJSON(raw string) (string, error) {
 		}
 
 		params.HeaderProtectionKey = hexKey
+	}
+
+	cpsArray := [5]string{params.I1, params.I2, params.I3, params.I4, params.I5}
+
+	for indx, value := range cpsArray {
+		fieldName := fmt.Sprintf("I%d", indx+1)
+
+		if err := get.ValidateCPS(fieldName, value); err != nil {
+			return "", err
+		}
+	}
+
+	numericFields := []struct {
+		name  string
+		value string
+	}{
+		{"content_padding_addition", params.ContentPaddingAddition},
+		{"rekey_after_time", params.RekeyAfterTime},
+		{"rekey_timeout", params.RekeyTimeout},
+		{"reject_after_time", params.RejectAfterTime},
+		{"keepalive_timeout", params.KeepaliveTimeout},
+	}
+
+	for _, field := range numericFields {
+		if field.value == "" {
+			continue
+		}
+
+		if err := get.ValidateNumericRange(field.name, field.value); err != nil {
+			return "", err
+		}
 	}
 
 	return fmtUApiConfig(&params), nil

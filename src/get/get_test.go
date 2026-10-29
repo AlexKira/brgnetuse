@@ -549,3 +549,84 @@ func TestGetPeer(t *testing.T) {
 		})
 	}
 }
+
+// TestValidateCPS tests validation of CPS tag sequences.
+func TestValidateCPS(t *testing.T) {
+	tests := []struct {
+		name      string
+		fieldName string
+		value     string
+		wantError bool
+	}{
+		{
+			name:      "valid CPS sequence",
+			fieldName: "I1",
+			value:     "<b 0xc00000000113960dbaec3c9004352821c837691eceed990801075bd0><rc 17><t><r 76>",
+			wantError: false,
+		},
+		{
+			name:      "rd length exceeds maximum",
+			fieldName: "I2",
+			value:     "<rd 1000>",
+			wantError: false,
+		},
+		{
+			name:      "duplicate timestamp tag",
+			fieldName: "I3",
+			value:     "<t><b 0xf6ab><t>",
+			wantError: true,
+		},
+	}
+
+	t.Log("--------------------------------------")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateCPS(tc.fieldName, tc.value)
+
+			if tc.wantError && err == nil {
+				t.Errorf(
+					"ValidateCPS(%q, %q) expected an error, got nil",
+					tc.fieldName,
+					tc.value,
+				)
+			}
+
+			if !tc.wantError && err != nil {
+				t.Errorf(
+					"ValidateCPS(%q, %q) returned unexpected error: %v",
+					tc.fieldName,
+					tc.value,
+					err,
+				)
+			}
+		})
+	}
+	t.Log("End test")
+	t.Log("--------------------------------------")
+}
+
+// TestValidateCPS tests validation of CPS tag sequences.
+func TestValidateNumericRange(t *testing.T) {
+	tests := []struct {
+		name      string
+		value     string
+		wantError bool
+	}{
+		{"single number", "10", false},
+		{"pair of numbers", "0-0", false},
+		{"invalid number", "abc", true},
+		{"missing second number", "10-", true},
+		{"too many numbers", "1-2-3", true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateNumericRange("rekey_timeout", tc.value)
+
+			if (err != nil) != tc.wantError {
+				t.Errorf("ValidateNumericRange(%q) error = %v, wantError %v",
+					tc.value, err, tc.wantError)
+			}
+		})
+	}
+}
